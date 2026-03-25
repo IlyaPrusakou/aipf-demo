@@ -1,0 +1,90 @@
+managed implementation in class ZBP_R_PRU_MESSAGE unique;
+strict ( 2 );
+with draft;
+extensible;
+
+
+define behavior for ZR_PRU_MESSAGE alias ZrPruMessage
+persistent table zpru_message
+extensible
+draft table zpru_message_d
+etag master LastChangedAt
+lock master total etag LastChangedAt
+authorization master ( global )
+{
+  field ( mandatory : create )
+  Messageid;
+
+  field ( readonly )
+  CreatedBy,
+  CreatedAt,
+  LastChangedBy,
+  LastChangedAt;
+
+  field ( readonly : update )
+  Messageid;
+
+
+  create;
+  update;
+  delete;
+
+  association _attachment { create; with draft; }
+
+  draft action Activate optimized;
+  draft action Discard;
+  draft action Edit;
+  draft action Resume;
+  draft determine action Prepare;
+
+  mapping for zpru_message corresponding extensible
+    {
+      Messageid     = MESSAGEID;
+      Query         = QUERY;
+      CreatedBy     = CREATED_BY;
+      CreatedAt     = CREATED_AT;
+      LastChangedBy = LAST_CHANGED_BY;
+      LastChangedAt = LAST_CHANGED_AT;
+    }
+
+}
+
+
+
+define behavior for ZR_PRU_ATTACHMENT alias ZrPruAttachment
+persistent table zpru_attachment
+extensible
+draft table zpru_attach_d
+etag dependent by _message
+lock dependent by _message
+authorization dependent by _message
+{
+  field ( mandatory : create ) Attachmentid;
+
+  field ( readonly )
+  Messageid,
+  CreatedBy,
+  CreatedAt,
+  LastChangedBy;
+
+  field ( readonly : update )
+  Attachmentid;
+
+  update;
+  delete;
+
+  association _message  { with draft; }
+
+  mapping for zpru_attachment corresponding extensible
+    {
+      Attachmentid  = attachmentid;
+      Messageid     = MESSAGEID;
+      Attachment    = attachment;
+      Filename      = filename;
+      Mimetype      = mimetype;
+      CreatedBy     = CREATED_BY;
+      CreatedAt     = CREATED_AT;
+      LastChangedBy = LAST_CHANGED_BY;
+    }
+
+}

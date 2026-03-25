@@ -1,0 +1,6 @@
+@EndUserText.label: 'ZC_PRU_MESSAGE'
+@MappingRole: true
+define role ZC_PRU_MESSAGE {
+  grant select on ZC_PRU_MESSAGE
+  where INHERITING CONDITIONS FROM ENTITY ZR_PRU_MESSAGE REPLACING { ROOT WITH _BaseEntity };
+}

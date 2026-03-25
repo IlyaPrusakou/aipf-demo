@@ -1,0 +1,6 @@
+@EndUserText.label: 'ZR_PRU_MESSAGE'
+@MappingRole: true
+define role ZR_PRU_MESSAGE {
+  grant select on ZR_PRU_MESSAGE
+  where TRUE;
+}
