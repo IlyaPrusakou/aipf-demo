@@ -3,7 +3,7 @@
 annotate entity ZC_PRU_ATTACHMENT with
 
 {
-  @EndUserText.label: 'Messageid'
+
   @UI.facet: [ { label: 'General Information',
                  id: 'GeneralInfo',
                  purpose: #STANDARD,
@@ -14,42 +14,50 @@ annotate entity ZC_PRU_ATTACHMENT with
                  position: 35,
                  type: #IDENTIFICATION_REFERENCE,
                  targetQualifier: 'FILE' } ]
-  @UI.identification: [ { position: 10, label: 'Messageid' } ]
-  @UI.lineItem: [ { position: 10, label: 'Messageid' } ]
+
+  @EndUserText.label: 'AttachmentID'
+  @UI.identification: [ { position: 10, label: 'AttachmentID' } ]
+  @UI.lineItem: [ { position: 10, label: 'AttachmentID' } ]
   @UI.selectionField: [ { position: 10 } ]
+  Attachmentid;
+
+  @EndUserText.label: 'Messageid'
+  @UI.identification: [ { position: 20, label: 'Messageid' } ]
+  @UI.lineItem: [ { position: 20, label: 'Messageid' } ]
+  @UI.selectionField: [ { position: 20 } ]
   Messageid;
 
   @EndUserText.label: 'Attachment'
-  @UI.identification: [ { position: 20, qualifier: 'FILE', label: 'Attachment' } ]
-  @UI.lineItem: [ { position: 20, label: 'Attachment' } ]
-  @UI.selectionField: [ { position: 20 } ]
+  @UI.identification: [ { position: 30, qualifier: 'FILE', label: 'Attachment' } ]
+  @UI.lineItem: [ { position: 30, label: 'Attachment' } ]
+  @UI.selectionField: [ { position: 30 } ]
   Attachment;
 
   @EndUserText.label: 'Filename'
-  @UI.identification: [ { position: 21, label: 'Filename' } ]
-  @UI.lineItem: [ { position: 21, label: 'Filename' } ]
-  @UI.selectionField: [ { position: 21 } ]
+  @UI.identification: [ { position: 40, label: 'Filename' } ]
+  @UI.lineItem: [ { position: 40, label: 'Filename' } ]
+  @UI.selectionField: [ { position: 40 } ]
   Filename;
 
   @EndUserText.label: 'Mimetype'
-  @UI.identification: [ { position: 22, label: 'Mimetype' } ]
-  @UI.lineItem: [ { position: 22, label: 'Mimetype' } ]
-  @UI.selectionField: [ { position: 22 } ]
+  @UI.identification: [ { position: 50, label: 'Mimetype' } ]
+  @UI.lineItem: [ { position: 50, label: 'Mimetype' } ]
+  @UI.selectionField: [ { position: 50 } ]
   Mimetype;
 
-  @UI.identification: [ { position: 30 } ]
-  @UI.lineItem: [ { position: 30 } ]
-  @UI.selectionField: [ { position: 30 } ]
+  @UI.identification: [ { position: 60} ]
+  @UI.lineItem: [ { position: 60 } ]
+  @UI.selectionField: [ { position: 60 } ]
   CreatedBy;
 
-  @UI.identification: [ { position: 40 } ]
-  @UI.lineItem: [ { position: 40 } ]
-  @UI.selectionField: [ { position: 40 } ]
+  @UI.identification: [ { position: 70 } ]
+  @UI.lineItem: [ { position: 70 } ]
+  @UI.selectionField: [ { position: 70 } ]
   CreatedAt;
 
-  @UI.identification: [ { position: 50 } ]
-  @UI.lineItem: [ { position: 50 } ]
-  @UI.selectionField: [ { position: 50 } ]
+  @UI.identification: [ { position: 80 } ]
+  @UI.lineItem: [ { position: 80 } ]
+  @UI.selectionField: [ { position: 80 } ]
   LastChangedBy;
 
 }

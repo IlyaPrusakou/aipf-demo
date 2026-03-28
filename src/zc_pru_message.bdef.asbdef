@@ -11,10 +11,23 @@ use etag
   use update;
   use delete;
 
+  use association _attachment { create; with draft; }
+
   use action Edit;
   use action Activate;
   use action Discard;
   use action Resume;
   use action Prepare;
+
+}
+
+define behavior for ZC_PRU_ATTACHMENT alias ZrPruAttachment
+extensible
+use etag
+{
+  use update;
+  use delete;
+  use association _message { with draft; }
+
 
 }
