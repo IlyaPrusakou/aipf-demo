@@ -3,29 +3,27 @@ strict ( 2 );
 with draft;
 extensible;
 define behavior for ZR_PRU_CMR_HEADER alias ZrPruCmrHeader
-persistent table ZPRU_CMR_HEADER
+persistent table zpru_cmr_header
 extensible
-draft table ZPRU_CMR_HADER_D
+draft table zpru_cmr_hader_d
 etag master Lastchangedat
 lock master total etag Lastchangedat
-authorization master( global )
+authorization master ( global )
 {
-  field ( mandatory : create )
-   Cmruuid;
+  field ( numbering : managed ) Cmruuid;
 
   field ( readonly )
-   Createdby,
-   Createdat,
-   Lastchangedby,
-   Lastchangedat;
-
-  field ( readonly : update )
-   Cmruuid;
-
+  Cmruuid,
+  Createdby,
+  Createdat,
+  Lastchangedby,
+  Lastchangedat;
 
   create;
   update;
   delete;
+
+  association _cmritems { create; with draft; }
 
   draft action Activate optimized;
   draft action Discard;
@@ -33,29 +31,66 @@ authorization master( global )
   draft action Resume;
   draft determine action Prepare;
 
-  mapping for ZPRU_CMR_HEADER corresponding extensible
-  {
-    Cmruuid = CMRUUID;
-    Cmrid = CMRID;
-    Senderinfo = SENDERINFO;
-    Consigneeinfo = CONSIGNEEINFO;
-    Deliveryplace = DELIVERYPLACE;
-    Takingoverplace = TAKINGOVERPLACE;
-    Takingoverdate = TAKINGOVERDATE;
-    Docsattached = DOCSATTACHED;
-    Carrierinfo = CARRIERINFO;
-    Successivecarrier = SUCCESSIVECARRIER;
-    Carrierreserv = CARRIERRESERV;
-    Senderinstruction = SENDERINSTRUCTION;
-    Cashondelivery = CASHONDELIVERY;
-    Currency = CURRENCY;
-    Specialagreements = SPECIALAGREEMENTS;
-    Establishedplace = ESTABLISHEDPLACE;
-    Establisheddate = ESTABLISHEDDATE;
-    Createdby = CREATEDBY;
-    Createdat = CREATEDAT;
-    Lastchangedby = LASTCHANGEDBY;
-    Lastchangedat = LASTCHANGEDAT;
-  }
+  mapping for zpru_cmr_header corresponding extensible
+    {
+      Cmruuid           = CMRUUID;
+      Cmrid             = CMRID;
+      Senderinfo        = SENDERINFO;
+      Consigneeinfo     = CONSIGNEEINFO;
+      Deliveryplace     = DELIVERYPLACE;
+      Takingoverplace   = TAKINGOVERPLACE;
+      Takingoverdate    = TAKINGOVERDATE;
+      Carrierinfo       = CARRIERINFO;
+      Successivecarrier = SUCCESSIVECARRIER;
+      Senderinstruction = SENDERINSTRUCTION;
+      Cashondelivery    = CASHONDELIVERY;
+      Currency          = CURRENCY;
+      Establishedplace  = ESTABLISHEDPLACE;
+      Establisheddate   = ESTABLISHEDDATE;
+      Createdby         = CREATEDBY;
+      Createdat         = CREATEDAT;
+      Lastchangedby     = LASTCHANGEDBY;
+      Lastchangedat     = LASTCHANGEDAT;
+    }
+
+}
+
+define behavior for zr_pru_cmr_item alias ZrPruCmrItem
+persistent table zpru_cmr_item
+draft table zpru_cmr_item_d
+extensible
+etag dependent by _CMRHeader
+lock dependent by _CMRHeader
+authorization dependent by _CMRHeader
+{
+  field ( numbering : managed ) CMRItemUUID;
+
+  field ( readonly )
+  CMRItemUUID, CMRUUID;
+
+  update;
+  delete;
+
+  association _CMRHeader { with draft; }
+
+  mapping for zpru_cmr_item corresponding extensible
+    {
+      CMRItemUUID        = CMRItemUUID;
+      CMRUUID            = CMRUUID;
+      CMRID              = CMRID;
+      ItemPosition       = ItemPosition;
+      MarksNumbers       = MarksNumbers;
+      PackageCount       = PackageCount;
+      PackingMethod      = PackingMethod;
+      NatureOfGoods      = NatureOfGoods;
+      StatisticalNumber  = StatisticalNumber;
+      WeightUnitField    = WeightUnitField;
+      VolumeUnitField    = VolumeUnitField;
+      GrossWeight        = GrossWeight;
+      Volume             = Volume;
+      UnitedNationNumber = UnitedNationNumber;
+      HazardClass        = HazardClass;
+      PackingGroup       = PackingGroup;
+    }
 
 }

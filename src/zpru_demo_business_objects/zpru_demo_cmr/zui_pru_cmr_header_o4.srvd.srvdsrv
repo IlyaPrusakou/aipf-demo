@@ -6,6 +6,8 @@
     name: 'ZC_PRU_CMR_HEADER'
   }
 }
-define service ZUI_PRU_CMR_HEADER_O4 provider contracts odata_v4_ui {
+define service ZUI_PRU_CMR_HEADER_O4
+  provider contracts odata_v4_ui {
   expose ZC_PRU_CMR_HEADER;
+  expose zc_pru_cmr_item;
 }

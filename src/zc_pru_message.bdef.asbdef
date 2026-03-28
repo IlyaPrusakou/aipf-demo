@@ -21,7 +21,7 @@ use etag
 
 }
 
-define behavior for ZC_PRU_ATTACHMENT alias ZrPruAttachment
+define behavior for ZC_PRU_ATTACHMENT alias ZcPruAttachment
 extensible
 use etag
 {

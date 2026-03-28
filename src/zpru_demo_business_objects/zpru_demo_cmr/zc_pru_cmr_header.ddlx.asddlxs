@@ -5,7 +5,7 @@
 @UI.headerInfo.description.value: 'Cmruuid'
 annotate view ZC_PRU_CMR_HEADER with
 {
-  @EndUserText.label: 'Cmruuid'
+  @EndUserText.label: 'CMRUUID'
   @UI.facet: [ {
     label: 'General Information', 
     id: 'GeneralInfo', 
@@ -15,226 +15,198 @@ annotate view ZC_PRU_CMR_HEADER with
   } ]
   @UI.identification: [ {
     position: 10 , 
-    label: 'Cmruuid'
+    label: 'CMRUUID'
   } ]
   @UI.lineItem: [ {
     position: 10 , 
-    label: 'Cmruuid'
+    label: 'CMRUUID'
   } ]
   @UI.selectionField: [ {
     position: 10 
   } ]
-  Cmruuid;
+  CMRUUID;
   
-  @EndUserText.label: 'Cmrid'
+  @EndUserText.label: 'CMRID'
   @UI.identification: [ {
     position: 20 , 
-    label: 'Cmrid'
+    label: 'CMRID'
   } ]
   @UI.lineItem: [ {
     position: 20 , 
-    label: 'Cmrid'
+    label: 'CMRID'
   } ]
   @UI.selectionField: [ {
     position: 20 
   } ]
-  Cmrid;
+  CMRID;
   
-  @EndUserText.label: 'Senderinfo'
+  @EndUserText.label: 'SenderInfo'
   @UI.identification: [ {
     position: 30 , 
-    label: 'Senderinfo'
+    label: 'SenderInfo'
   } ]
   @UI.lineItem: [ {
     position: 30 , 
-    label: 'Senderinfo'
+    label: 'SenderInfo'
   } ]
   @UI.selectionField: [ {
     position: 30 
   } ]
-  Senderinfo;
+  SenderInfo;
   
-  @EndUserText.label: 'Consigneeinfo'
+  @EndUserText.label: 'ConsigneeInfo'
   @UI.identification: [ {
     position: 40 , 
-    label: 'Consigneeinfo'
+    label: 'ConsigneeInfo'
   } ]
   @UI.lineItem: [ {
     position: 40 , 
-    label: 'Consigneeinfo'
+    label: 'ConsigneeInfo'
   } ]
   @UI.selectionField: [ {
     position: 40 
   } ]
-  Consigneeinfo;
+  ConsigneeInfo;
   
-  @EndUserText.label: 'Deliveryplace'
+  @EndUserText.label: 'DeliveryPlace'
   @UI.identification: [ {
     position: 50 , 
-    label: 'Deliveryplace'
+    label: 'DeliveryPlace'
   } ]
   @UI.lineItem: [ {
     position: 50 , 
-    label: 'Deliveryplace'
+    label: 'DeliveryPlace'
   } ]
   @UI.selectionField: [ {
     position: 50 
   } ]
-  Deliveryplace;
+  DeliveryPlace;
   
-  @EndUserText.label: 'Takingoverplace'
+  @EndUserText.label: 'TakingOverPlace'
   @UI.identification: [ {
     position: 60 , 
-    label: 'Takingoverplace'
+    label: 'TakingOverPlace'
   } ]
   @UI.lineItem: [ {
     position: 60 , 
-    label: 'Takingoverplace'
+    label: 'TakingOverPlace'
   } ]
   @UI.selectionField: [ {
     position: 60 
   } ]
-  Takingoverplace;
+  TakingOverPlace;
   
-  @EndUserText.label: 'Takingoverdate'
+  @EndUserText.label: 'TakingOverDate'
   @UI.identification: [ {
     position: 70 , 
-    label: 'Takingoverdate'
+    label: 'TakingOverDate'
   } ]
   @UI.lineItem: [ {
     position: 70 , 
-    label: 'Takingoverdate'
+    label: 'TakingOverDate'
   } ]
   @UI.selectionField: [ {
     position: 70 
   } ]
-  Takingoverdate;
+  TakingOverDate;
   
-  @EndUserText.label: 'Docsattached'
-  @UI.identification: [ {
-    position: 80 , 
-    label: 'Docsattached'
-  } ]
-  @UI.lineItem: [ {
-    position: 80 , 
-    label: 'Docsattached'
-  } ]
-  @UI.selectionField: [ {
-    position: 80 
-  } ]
-  Docsattached;
-  
-  @EndUserText.label: 'Carrierinfo'
+  @EndUserText.label: 'CarrierInfo'
   @UI.identification: [ {
     position: 90 , 
-    label: 'Carrierinfo'
+    label: 'CarrierInfo'
   } ]
   @UI.lineItem: [ {
     position: 90 , 
-    label: 'Carrierinfo'
+    label: 'CarrierInfo'
   } ]
   @UI.selectionField: [ {
     position: 90 
   } ]
-  Carrierinfo;
+  CarrierInfo;
   
-  @EndUserText.label: 'Successivecarrier'
+  @EndUserText.label: 'SuccessiveCarrier'
   @UI.identification: [ {
     position: 100 , 
-    label: 'Successivecarrier'
+    label: 'SuccessiveCarrier'
   } ]
   @UI.lineItem: [ {
     position: 100 , 
-    label: 'Successivecarrier'
+    label: 'SuccessiveCarrier'
   } ]
   @UI.selectionField: [ {
     position: 100 
   } ]
-  Successivecarrier;
+  SuccessiveCarrier;
   
-  @EndUserText.label: 'Carrierreserv'
+  @EndUserText.label: 'CarrierreService'
   @UI.identification: [ {
     position: 110 , 
-    label: 'Carrierreserv'
+    label: 'CarrierreService'
   } ]
   @UI.lineItem: [ {
     position: 110 , 
-    label: 'Carrierreserv'
+    label: 'CarrierreService'
   } ]
   @UI.selectionField: [ {
     position: 110 
   } ]
-  Carrierreserv;
+  Carrierreservice;
   
-  @EndUserText.label: 'Senderinstruction'
+  @EndUserText.label: 'SenderInstruction'
   @UI.identification: [ {
     position: 120 , 
-    label: 'Senderinstruction'
+    label: 'SenderInstruction'
   } ]
   @UI.lineItem: [ {
     position: 120 , 
-    label: 'Senderinstruction'
+    label: 'SenderInstruction'
   } ]
   @UI.selectionField: [ {
     position: 120 
   } ]
-  Senderinstruction;
+  SenderInstruction;
   
-  @EndUserText.label: 'Cashondelivery'
+  @EndUserText.label: 'CashOnDelivery'
   @UI.identification: [ {
     position: 130 , 
-    label: 'Cashondelivery'
+    label: 'CashOnDelivery'
   } ]
   @UI.lineItem: [ {
     position: 130 , 
-    label: 'Cashondelivery'
+    label: 'CashOnDelivery'
   } ]
   @UI.selectionField: [ {
     position: 130 
   } ]
-  Cashondelivery;
-  
-  @EndUserText.label: 'Specialagreements'
-  @UI.identification: [ {
-    position: 140 , 
-    label: 'Specialagreements'
-  } ]
-  @UI.lineItem: [ {
-    position: 140 , 
-    label: 'Specialagreements'
-  } ]
-  @UI.selectionField: [ {
-    position: 140 
-  } ]
-  Specialagreements;
-  
-  @EndUserText.label: 'Establishedplace'
+  CashOnDelivery;
+    
+  @EndUserText.label: 'EstablishedPlace'
   @UI.identification: [ {
     position: 150 , 
-    label: 'Establishedplace'
+    label: 'EstablishedPlace'
   } ]
   @UI.lineItem: [ {
     position: 150 , 
-    label: 'Establishedplace'
+    label: 'EstablishedPlace'
   } ]
   @UI.selectionField: [ {
     position: 150 
   } ]
-  Establishedplace;
+  EstablishedPlace;
   
-  @EndUserText.label: 'Establisheddate'
+  @EndUserText.label: 'EstablishedDate'
   @UI.identification: [ {
     position: 160 , 
-    label: 'Establisheddate'
+    label: 'EstablishedDate'
   } ]
   @UI.lineItem: [ {
     position: 160 , 
-    label: 'Establisheddate'
+    label: 'EstablishedDate'
   } ]
   @UI.selectionField: [ {
     position: 160 
   } ]
-  Establisheddate;
+  EstablishedDate;
   
   @UI.identification: [ {
     position: 170 

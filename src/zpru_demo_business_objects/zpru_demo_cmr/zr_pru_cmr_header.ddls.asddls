@@ -6,24 +6,22 @@ define root view entity ZR_PRU_CMR_HEADER
   as select from zpru_cmr_header
   composition [*] of zr_pru_cmr_item as _cmritems
 {
-  key cmruuid           as Cmruuid,
-      cmrid             as Cmrid,
-      senderinfo        as Senderinfo,
-      consigneeinfo     as Consigneeinfo,
-      deliveryplace     as Deliveryplace,
-      takingoverplace   as Takingoverplace,
-      takingoverdate    as Takingoverdate,
-      docsattached      as Docsattached,
-      carrierinfo       as Carrierinfo,
-      successivecarrier as Successivecarrier,
-      carrierreserv     as Carrierreserv,
-      senderinstruction as Senderinstruction,
+  key cmruuid           as CMRUUID,
+      cmrid             as CMRID,
+      senderinfo        as SenderInfo,
+      consigneeinfo     as ConsigneeInfo,
+      deliveryplace     as DeliveryPlace,
+      takingoverplace   as TakingOverPlace,
+      takingoverdate    as TakingOverDate,
+      carrierinfo       as CarrierInfo,
+      successivecarrier as SuccessiveCarrier,
+      carrierreservice     as Carrierreservice,
+      senderinstruction as SenderInstruction,
       @Semantics.amount.currencyCode: 'Currency'
-      cashondelivery    as Cashondelivery,
+      cashondelivery    as CashOnDelivery,
       currency          as Currency,
-      specialagreements as Specialagreements,
-      establishedplace  as Establishedplace,
-      establisheddate   as Establisheddate,
+      establishedplace  as EstablishedPlace,
+      establisheddate   as EstablishedDate,
       @Semantics.user.createdBy: true
       createdby         as Createdby,
       @Semantics.systemDateTime.createdAt: true
