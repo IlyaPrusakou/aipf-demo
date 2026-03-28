@@ -1,0 +1,296 @@
+@Metadata.layer: #CORE
+@UI.headerInfo.title.type: #STANDARD
+@UI.headerInfo.title.value: 'Cmruuid'
+@UI.headerInfo.description.type: #STANDARD
+@UI.headerInfo.description.value: 'Cmruuid'
+annotate view ZC_PRU_CMR_HEADER with
+{
+  @EndUserText.label: 'Cmruuid'
+  @UI.facet: [ {
+    label: 'General Information', 
+    id: 'GeneralInfo', 
+    purpose: #STANDARD, 
+    position: 10 , 
+    type: #IDENTIFICATION_REFERENCE
+  } ]
+  @UI.identification: [ {
+    position: 10 , 
+    label: 'Cmruuid'
+  } ]
+  @UI.lineItem: [ {
+    position: 10 , 
+    label: 'Cmruuid'
+  } ]
+  @UI.selectionField: [ {
+    position: 10 
+  } ]
+  Cmruuid;
+  
+  @EndUserText.label: 'Cmrid'
+  @UI.identification: [ {
+    position: 20 , 
+    label: 'Cmrid'
+  } ]
+  @UI.lineItem: [ {
+    position: 20 , 
+    label: 'Cmrid'
+  } ]
+  @UI.selectionField: [ {
+    position: 20 
+  } ]
+  Cmrid;
+  
+  @EndUserText.label: 'Senderinfo'
+  @UI.identification: [ {
+    position: 30 , 
+    label: 'Senderinfo'
+  } ]
+  @UI.lineItem: [ {
+    position: 30 , 
+    label: 'Senderinfo'
+  } ]
+  @UI.selectionField: [ {
+    position: 30 
+  } ]
+  Senderinfo;
+  
+  @EndUserText.label: 'Consigneeinfo'
+  @UI.identification: [ {
+    position: 40 , 
+    label: 'Consigneeinfo'
+  } ]
+  @UI.lineItem: [ {
+    position: 40 , 
+    label: 'Consigneeinfo'
+  } ]
+  @UI.selectionField: [ {
+    position: 40 
+  } ]
+  Consigneeinfo;
+  
+  @EndUserText.label: 'Deliveryplace'
+  @UI.identification: [ {
+    position: 50 , 
+    label: 'Deliveryplace'
+  } ]
+  @UI.lineItem: [ {
+    position: 50 , 
+    label: 'Deliveryplace'
+  } ]
+  @UI.selectionField: [ {
+    position: 50 
+  } ]
+  Deliveryplace;
+  
+  @EndUserText.label: 'Takingoverplace'
+  @UI.identification: [ {
+    position: 60 , 
+    label: 'Takingoverplace'
+  } ]
+  @UI.lineItem: [ {
+    position: 60 , 
+    label: 'Takingoverplace'
+  } ]
+  @UI.selectionField: [ {
+    position: 60 
+  } ]
+  Takingoverplace;
+  
+  @EndUserText.label: 'Takingoverdate'
+  @UI.identification: [ {
+    position: 70 , 
+    label: 'Takingoverdate'
+  } ]
+  @UI.lineItem: [ {
+    position: 70 , 
+    label: 'Takingoverdate'
+  } ]
+  @UI.selectionField: [ {
+    position: 70 
+  } ]
+  Takingoverdate;
+  
+  @EndUserText.label: 'Docsattached'
+  @UI.identification: [ {
+    position: 80 , 
+    label: 'Docsattached'
+  } ]
+  @UI.lineItem: [ {
+    position: 80 , 
+    label: 'Docsattached'
+  } ]
+  @UI.selectionField: [ {
+    position: 80 
+  } ]
+  Docsattached;
+  
+  @EndUserText.label: 'Carrierinfo'
+  @UI.identification: [ {
+    position: 90 , 
+    label: 'Carrierinfo'
+  } ]
+  @UI.lineItem: [ {
+    position: 90 , 
+    label: 'Carrierinfo'
+  } ]
+  @UI.selectionField: [ {
+    position: 90 
+  } ]
+  Carrierinfo;
+  
+  @EndUserText.label: 'Successivecarrier'
+  @UI.identification: [ {
+    position: 100 , 
+    label: 'Successivecarrier'
+  } ]
+  @UI.lineItem: [ {
+    position: 100 , 
+    label: 'Successivecarrier'
+  } ]
+  @UI.selectionField: [ {
+    position: 100 
+  } ]
+  Successivecarrier;
+  
+  @EndUserText.label: 'Carrierreserv'
+  @UI.identification: [ {
+    position: 110 , 
+    label: 'Carrierreserv'
+  } ]
+  @UI.lineItem: [ {
+    position: 110 , 
+    label: 'Carrierreserv'
+  } ]
+  @UI.selectionField: [ {
+    position: 110 
+  } ]
+  Carrierreserv;
+  
+  @EndUserText.label: 'Senderinstruction'
+  @UI.identification: [ {
+    position: 120 , 
+    label: 'Senderinstruction'
+  } ]
+  @UI.lineItem: [ {
+    position: 120 , 
+    label: 'Senderinstruction'
+  } ]
+  @UI.selectionField: [ {
+    position: 120 
+  } ]
+  Senderinstruction;
+  
+  @EndUserText.label: 'Cashondelivery'
+  @UI.identification: [ {
+    position: 130 , 
+    label: 'Cashondelivery'
+  } ]
+  @UI.lineItem: [ {
+    position: 130 , 
+    label: 'Cashondelivery'
+  } ]
+  @UI.selectionField: [ {
+    position: 130 
+  } ]
+  Cashondelivery;
+  
+  @EndUserText.label: 'Specialagreements'
+  @UI.identification: [ {
+    position: 140 , 
+    label: 'Specialagreements'
+  } ]
+  @UI.lineItem: [ {
+    position: 140 , 
+    label: 'Specialagreements'
+  } ]
+  @UI.selectionField: [ {
+    position: 140 
+  } ]
+  Specialagreements;
+  
+  @EndUserText.label: 'Establishedplace'
+  @UI.identification: [ {
+    position: 150 , 
+    label: 'Establishedplace'
+  } ]
+  @UI.lineItem: [ {
+    position: 150 , 
+    label: 'Establishedplace'
+  } ]
+  @UI.selectionField: [ {
+    position: 150 
+  } ]
+  Establishedplace;
+  
+  @EndUserText.label: 'Establisheddate'
+  @UI.identification: [ {
+    position: 160 , 
+    label: 'Establisheddate'
+  } ]
+  @UI.lineItem: [ {
+    position: 160 , 
+    label: 'Establisheddate'
+  } ]
+  @UI.selectionField: [ {
+    position: 160 
+  } ]
+  Establisheddate;
+  
+  @UI.identification: [ {
+    position: 170 
+  } ]
+  @UI.lineItem: [ {
+    position: 170 
+  } ]
+  @UI.selectionField: [ {
+    position: 170 
+  } ]
+  Createdby;
+  
+  @UI.identification: [ {
+    position: 180 
+  } ]
+  @UI.lineItem: [ {
+    position: 180 
+  } ]
+  @UI.selectionField: [ {
+    position: 180 
+  } ]
+  Createdat;
+  
+  @UI.identification: [ {
+    position: 190 
+  } ]
+  @UI.lineItem: [ {
+    position: 190 
+  } ]
+  @UI.selectionField: [ {
+    position: 190 
+  } ]
+  Lastchangedby;
+  
+  @UI.identification: [ {
+    position: 200 
+  } ]
+  @UI.lineItem: [ {
+    position: 200 
+  } ]
+  @UI.selectionField: [ {
+    position: 200 
+  } ]
+  Lastchangedat;
+  
+  @EndUserText.label: '_BaseEntity'
+  @UI.identification: [ {
+    position: 210 , 
+    label: '_BaseEntity'
+  } ]
+  @UI.lineItem: [ {
+    position: 210 , 
+    label: '_BaseEntity'
+  } ]
+  @UI.selectionField: [ {
+    position: 210 
+  } ]
+  _BaseEntity;
+}

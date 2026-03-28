@@ -1,0 +1,61 @@
+managed implementation in class ZBP_R_PRU_CMR_HEADER unique;
+strict ( 2 );
+with draft;
+extensible;
+define behavior for ZR_PRU_CMR_HEADER alias ZrPruCmrHeader
+persistent table ZPRU_CMR_HEADER
+extensible
+draft table ZPRU_CMR_HADER_D
+etag master Lastchangedat
+lock master total etag Lastchangedat
+authorization master( global )
+{
+  field ( mandatory : create )
+   Cmruuid;
+
+  field ( readonly )
+   Createdby,
+   Createdat,
+   Lastchangedby,
+   Lastchangedat;
+
+  field ( readonly : update )
+   Cmruuid;
+
+
+  create;
+  update;
+  delete;
+
+  draft action Activate optimized;
+  draft action Discard;
+  draft action Edit;
+  draft action Resume;
+  draft determine action Prepare;
+
+  mapping for ZPRU_CMR_HEADER corresponding extensible
+  {
+    Cmruuid = CMRUUID;
+    Cmrid = CMRID;
+    Senderinfo = SENDERINFO;
+    Consigneeinfo = CONSIGNEEINFO;
+    Deliveryplace = DELIVERYPLACE;
+    Takingoverplace = TAKINGOVERPLACE;
+    Takingoverdate = TAKINGOVERDATE;
+    Docsattached = DOCSATTACHED;
+    Carrierinfo = CARRIERINFO;
+    Successivecarrier = SUCCESSIVECARRIER;
+    Carrierreserv = CARRIERRESERV;
+    Senderinstruction = SENDERINSTRUCTION;
+    Cashondelivery = CASHONDELIVERY;
+    Currency = CURRENCY;
+    Specialagreements = SPECIALAGREEMENTS;
+    Establishedplace = ESTABLISHEDPLACE;
+    Establisheddate = ESTABLISHEDDATE;
+    Createdby = CREATEDBY;
+    Createdat = CREATEDAT;
+    Lastchangedby = LASTCHANGEDBY;
+    Lastchangedat = LASTCHANGEDAT;
+  }
+
+}

@@ -1,0 +1,211 @@
+@Metadata.layer: #CORE
+annotate entity zc_pru_cmr_item with
+{
+
+  @UI.facet: [ {
+    label: 'General Information',
+    id: 'GeneralInfo',
+    purpose: #STANDARD,
+    position: 10 ,
+    type: #IDENTIFICATION_REFERENCE
+  } ]
+
+  CMRUUID;
+  @EndUserText.label: 'CMRID'
+  @UI.identification: [ {
+    position: 10 ,
+    label: 'CMRID'
+  } ]
+  @UI.lineItem: [ {
+    position: 10 ,
+    label: 'CMRID'
+  } ]
+  @UI.selectionField: [ {
+    position: 10
+  } ]
+  CMRID;
+    @EndUserText.label: 'ItemPosition'
+  @UI.identification: [ {
+    position: 20 ,
+    label: 'ItemPosition'
+  } ]
+  @UI.lineItem: [ {
+    position: 20 ,
+    label: 'ItemPosition'
+  } ]
+  @UI.selectionField: [ {
+    position: 20
+  } ]
+  ItemPosition;
+    @EndUserText.label: 'MarksNumbers'  
+  @UI.identification: [ {
+    position: 30 ,
+    label: 'MarksNumbers'
+  } ]
+  @UI.lineItem: [ {
+    position: 30 ,
+    label: 'MarksNumbers'
+  } ]
+  @UI.selectionField: [ {
+    position: 30
+  } ]
+  MarksNumbers;
+      @EndUserText.label: 'PackageCount'  
+  @UI.identification: [ {
+    position: 40 ,
+    label: 'PackageCount'
+  } ]
+  @UI.lineItem: [ {
+    position: 40 ,
+    label: 'PackageCount'
+  } ]
+  @UI.selectionField: [ {
+    position: 40
+  } ]  
+  PackageCount;
+        @EndUserText.label: 'PackingMethod'
+  @UI.identification: [ {
+    position: 50 ,
+    label: 'PackingMethod'
+  } ]
+  @UI.lineItem: [ {
+    position: 50 ,
+    label: 'PackingMethod'
+  } ]
+  @UI.selectionField: [ {
+    position: 50
+  } ]   
+  PackingMethod;
+        @EndUserText.label: 'NatureOfGoods'  
+  @UI.identification: [ {
+    position: 60 ,
+    label: 'NatureOfGoods'
+  } ]
+  @UI.lineItem: [ {
+    position: 60 ,
+    label: 'NatureOfGoods'
+  } ]
+  @UI.selectionField: [ {
+    position: 60
+  } ]    
+  NatureOfGoods;
+        @EndUserText.label: 'StatisticalNumber'    
+  @UI.identification: [ {
+    position: 70 ,
+    label: 'StatisticalNumber'
+  } ]
+  @UI.lineItem: [ {
+    position: 70 ,
+    label: 'StatisticalNumber'
+  } ]
+  @UI.selectionField: [ {
+    position: 70
+  } ]    
+  StatisticalNumber;
+        @EndUserText.label: 'WeightUnitField'   
+  @UI.identification: [ {
+    position: 80 ,
+    label: 'WeightUnitField'
+  } ]
+  @UI.lineItem: [ {
+    position: 80 ,
+    label: 'WeightUnitField'
+  } ]
+  @UI.selectionField: [ {
+    position: 80
+  } ]   
+  WeightUnitField;
+        @EndUserText.label: 'VolumeUnitField'   
+   @UI.identification: [ {
+    position: 90 ,
+    label: 'VolumeUnitField'
+  } ]
+  @UI.lineItem: [ {
+    position: 90 ,
+    label: 'VolumeUnitField'
+  } ]
+  @UI.selectionField: [ {
+    position: 90
+  } ]   
+  VolumeUnitField;
+        @EndUserText.label: 'GrossWeight'     
+   @UI.identification: [ {
+    position: 100 ,
+    label: 'GrossWeight'
+  } ]
+  @UI.lineItem: [ {
+    position: 100 ,
+    label: 'GrossWeight'
+  } ]
+  @UI.selectionField: [ {
+    position: 100
+  } ]    
+  GrossWeight;
+        @EndUserText.label: 'Volume'     
+   @UI.identification: [ {
+    position: 110 ,
+    label: 'Volume'
+  } ]
+  @UI.lineItem: [ {
+    position: 110 ,
+    label: 'Volume'
+  } ]
+  @UI.selectionField: [ {
+    position: 110
+  } ]    
+  Volume;
+        @EndUserText.label: 'UnitedNationNumber'    
+   @UI.identification: [ {
+    position: 120 ,
+    label: 'UnitedNationNumber'
+  } ]
+  @UI.lineItem: [ {
+    position: 120 ,
+    label: 'UnitedNationNumber'
+  } ]
+  @UI.selectionField: [ {
+    position: 120
+  } ]   
+  UnitedNationNumber;
+        @EndUserText.label: 'HazardClass'   
+    @UI.identification: [ {
+    position: 130 ,
+    label: 'HazardClass'
+  } ]
+  @UI.lineItem: [ {
+    position: 130 ,
+    label: 'HazardClass'
+  } ]
+  @UI.selectionField: [ {
+    position: 130
+  } ]   
+  HazardClass;
+        @EndUserText.label: 'PackingGroup'   
+    @UI.identification: [ {
+    position: 130 ,
+    label: 'PackingGroup'
+  } ]
+  @UI.lineItem: [ {
+    position: 130 ,
+    label: 'PackingGroup'
+  } ]
+  @UI.selectionField: [ {
+    position: 130
+  } ]   
+  PackingGroup;
+  
+  @EndUserText.label: '_BaseEntity'
+  @UI.identification: [ {
+    position: 140 , 
+    label: '_BaseEntity'
+  } ]
+  @UI.lineItem: [ {
+    position: 140 , 
+    label: '_BaseEntity'
+  } ]
+  @UI.selectionField: [ {
+    position: 140 
+  } ]  
+  _CMRHeader;
+
+}

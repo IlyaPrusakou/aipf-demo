@@ -1,0 +1,11 @@
+@EndUserText: {
+  label: 'Service Definition for ZC_PRU_CMR_HEADER'
+}
+@ObjectModel: {
+  leadingEntity: {
+    name: 'ZC_PRU_CMR_HEADER'
+  }
+}
+define service ZUI_PRU_CMR_HEADER_O4 provider contracts odata_v4_ui {
+  expose ZC_PRU_CMR_HEADER;
+}
