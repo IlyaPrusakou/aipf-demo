@@ -57,6 +57,8 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
 
     DATA lt_raw_response TYPE tt_response_root.
     DATA ls_cmr_create_request TYPE zpru_s_cmr_create_request.
+    DATA lt_header TYPE STANDARD TABLE OF zpru_cmr_header WITH EMPTY KEY.
+    DATA lt_items TYPE STANDARD TABLE OF zpru_cmr_item WITH EMPTY KEY.
 
     /ui2/cl_json=>deserialize( EXPORTING json = iv_thinking_output
                                CHANGING  data = lt_raw_response ).
@@ -67,8 +69,19 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
 
     CASE is_first_tool-toolname.
       WHEN `CREATE_CMR`.
-        " ls_cmr_create_request-cmrheaders = headers
-        " ls_cmr_create_request-cmritems = items
+        LOOP AT lt_raw_response ASSIGNING FIELD-SYMBOL(<ls_raw_response>).
+          APPEND INITIAL LINE TO lt_header ASSIGNING FIELD-SYMBOL(<ls_header>).
+          <ls_header> = CORRESPONDING #( <ls_raw_response>-header ).
+
+          LOOP AT <ls_raw_response>-items ASSIGNING FIELD-SYMBOL(<ls_raw_item>).
+            APPEND INITIAL LINE TO lt_items ASSIGNING  FIELD-SYMBOL(<ls_item>).
+            <ls_item> = CORRESPONDING #( <ls_raw_item> ).
+          ENDLOOP.
+        ENDLOOP.
+
+        ls_cmr_create_request-cmrheaders = /ui2/cl_json=>serialize( data     = lt_header ).
+        ls_cmr_create_request-cmritems = /ui2/cl_json=>serialize( data     = lt_items ).
+
         er_first_tool_input = NEW zpru_s_cmr_create_request( ls_cmr_create_request ).
       WHEN OTHERS.
         RAISE EXCEPTION NEW zpru_cx_agent_core( ).
