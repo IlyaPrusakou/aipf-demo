@@ -30,6 +30,7 @@ authorization master ( global )
   delete;
 
   association _attachment { create; with draft; }
+  association _messagestep { create; with draft; }
 
   action PerformVisualRecognition;
 
@@ -75,7 +76,7 @@ authorization dependent by _message
   update;
   delete;
 
-  association _message  { with draft; }
+  association _message { with draft; }
 
   mapping for zpru_attachment corresponding extensible
     {
@@ -87,6 +88,47 @@ authorization dependent by _message
       CreatedBy     = CREATED_BY;
       CreatedAt     = CREATED_AT;
       LastChangedBy = LAST_CHANGED_BY;
+    }
+
+}
+
+define behavior for zr_pru_message_step alias ZrPruMessageStep
+persistent table zpru_message_stp
+extensible
+draft table zpru_mstep_d
+etag dependent by _message
+lock dependent by _message
+authorization dependent by _message
+{
+
+  field ( numbering : managed ) stepassignmentuuid;
+  field ( readonly )
+  stepassignmentuuid,
+  Messageid;
+
+  field ( readonly : update )
+  stepuuid, stepnumber, queryuuid, runuuid, tooluuid, stepstatus;
+
+  update;
+  delete;
+
+  association _message { with draft; }
+
+  mapping for zpru_message_stp corresponding extensible
+    {
+      Stepassignmentuuid = Stepassignmentuuid;
+      Stepuuid           = Stepuuid;
+      Stepnumber         = Stepnumber;
+      Messageid          = Messageid;
+      Queryuuid          = Queryuuid;
+      Runuuid            = Runuuid;
+      Tooluuid           = Tooluuid;
+      Stepsequence       = Stepsequence;
+      Stepstatus         = Stepstatus;
+      Stepstartdatetime  = Stepstartdatetime;
+      Stependdatetime    = Stependdatetime;
+      Stepinputprompt    = Stepinputprompt;
+      Stepoutputresponse = Stepoutputresponse;
     }
 
 }

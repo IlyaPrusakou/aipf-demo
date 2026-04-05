@@ -5,6 +5,7 @@
 define root view entity ZR_PRU_MESSAGE
   as select from zpru_message
   composition [*] of ZR_PRU_ATTACHMENT as _attachment
+  composition [*] of zr_pru_message_step as _messagestep
 {
   key messageid       as Messageid,
       query           as Query,
@@ -16,5 +17,6 @@ define root view entity ZR_PRU_MESSAGE
       last_changed_by as LastChangedBy,
       @Semantics.systemDateTime.localInstanceLastChangedAt: true
       last_changed_at as LastChangedAt,
-      _attachment
+      _attachment,
+      _messagestep
 }

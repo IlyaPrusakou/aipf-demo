@@ -76,6 +76,14 @@ CLASS lhc_zr_pru_message IMPLEMENTATION.
         RETURN.
     ENDTRY.
 
+    DATA lt_cmr_create TYPE TABLE FOR CREATE zr_pru_cmr_header.
+
+    MODIFY ENTITIES OF zr_pru_cmr_header
+      ENTITY zrprucmrheader
+  CREATE AUTO FILL CID WITH lt_cmr_create
+  MAPPED DATA(lt_mapped).
+
+
   ENDMETHOD.
 
 ENDCLASS.

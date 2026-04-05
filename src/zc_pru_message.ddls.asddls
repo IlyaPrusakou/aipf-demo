@@ -31,5 +31,6 @@ define root view entity ZC_PRU_MESSAGE
   }
   LastChangedAt,
   _attachment : redirected to composition child ZC_PRU_ATTACHMENT,
+  _messagestep : redirected to composition child zc_pru_message_step,
   _BaseEntity
 }

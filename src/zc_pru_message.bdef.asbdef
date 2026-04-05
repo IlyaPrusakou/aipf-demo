@@ -12,6 +12,7 @@ use etag
   use delete;
 
   use association _attachment { create; with draft; }
+    use association _messagestep { create; with draft; }
 
   use action PerformVisualRecognition;
 
@@ -31,5 +32,14 @@ use etag
   use delete;
   use association _message { with draft; }
 
+}
+
+define behavior for zc_pru_message_step alias ZcPruMessageStep
+extensible
+use etag
+{
+  use update;
+  use delete;
+  use association _message { with draft; }
 
 }
