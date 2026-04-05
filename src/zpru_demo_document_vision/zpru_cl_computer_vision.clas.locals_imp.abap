@@ -158,7 +158,7 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
 
     FIELD-SYMBOLS <ls_payload> TYPE zbp_r_pru_message=>ts_doc_recognition.
 
-    lv_gemini_url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`.
+    lv_gemini_url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`.
     TRY.
         lo_http_destination = cl_http_destination_provider=>create_by_url( i_url = lv_gemini_url ).
         lo_http_client = cl_web_http_client_manager=>create_by_http_destination( i_destination = lo_http_destination ).
@@ -172,7 +172,7 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
     lo_http_request->set_header_field( i_name  = 'Content-Type'
                                        i_value = 'application/json' ).
     lo_http_request->set_header_field( i_name  = 'x-goog-api-key'
-                                       i_value = 'My key' ).
+                                       i_value = 'mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm' ).
 
     CREATE DATA lr_payload TYPE (is_input_prompt-type).
 
@@ -281,7 +281,7 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
     ENDLOOP.
 
     lv_string_payload = /ui2/cl_json=>serialize( data     = ls_abap_payload
-                                                 pretty_name = /UI2/CL_JSON=>PRETTY_MODE-low_case
+                                                 pretty_name = /ui2/cl_json=>pretty_mode-low_case
                                                  compress = abap_true ).
 
     IF lv_string_payload IS INITIAL.
@@ -307,11 +307,22 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
 
     DATA(lv_raw_response) = VALUE #( ls_llm_output-candidates[ 1 ]-content-parts[ 1 ]-text OPTIONAL ).
 
+    REPLACE FIRST OCCURRENCE OF '```json' IN lv_raw_response WITH ''.
+    REPLACE ALL OCCURRENCES OF '```' IN lv_raw_response WITH ''.
+
     IF lv_raw_response IS INITIAL.
       RETURN.
     ENDIF.
 
     ev_thinking_output = lv_raw_response.
+
+    APPEND INITIAL LINE TO et_execution_plan ASSIGNING FIELD-SYMBOL(<ls_execution_plan>).
+    <ls_execution_plan>-agentuuid =   is_agent-agentuuid.
+    <ls_execution_plan>-sequence = 1.
+    <ls_execution_plan>-toolname = 'CREATE_CMR'.
+
+    ev_langu = sy-langu.
+
   ENDMETHOD.
 
   METHOD read_data_4_thinking.
