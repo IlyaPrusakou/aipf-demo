@@ -1,5 +1,6 @@
 CLASS lcl_adf_decision_provider IMPLEMENTATION.
   METHOD check_authorizations.
+    ev_allowed = abap_true.
     RETURN.
   ENDMETHOD.
 
@@ -384,19 +385,18 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
       <ls_runtime>-steps   = CORRESPONDING #( lt_axc_steps ).
     ENDLOOP.
 
- cs_final_response_body-responsecontent = /ui2/cl_json=>serialize( data = ls_recognition_output ).
+    cs_final_response_body-responsecontent = /ui2/cl_json=>serialize( data = ls_recognition_output ).
 
-  cs_final_response_body-type = `\CLASS=ZBP_R_PRU_MESSAGE\TYPE=TS_RECOGNITION_OUTPUT`.
+    cs_final_response_body-type            = `\CLASS=ZBP_R_PRU_MESSAGE\TYPE=TS_RECOGNITION_OUTPUT`.
 
     SORT io_controller->mt_input_output BY number DESCENDING.
     DATA(lt_freshest_context) = VALUE #( io_controller->mt_input_output[ 1 ]-key_value_pairs OPTIONAL ).
 
     LOOP AT lt_freshest_context ASSIGNING FIELD-SYMBOL(<ls_context>).
-      APPEND INITIAL LINE TO cs_final_response_body-structureddata ASSIGNING fiELD-SYMBOL(<ls_structureddata>).
+      APPEND INITIAL LINE TO cs_final_response_body-structureddata ASSIGNING FIELD-SYMBOL(<ls_structureddata>).
       <ls_structureddata>-name  = <ls_context>-name.
       <ls_structureddata>-value = <ls_context>-value.
     ENDLOOP.
-
   ENDMETHOD.
 
   METHOD set_final_response_metadata.
