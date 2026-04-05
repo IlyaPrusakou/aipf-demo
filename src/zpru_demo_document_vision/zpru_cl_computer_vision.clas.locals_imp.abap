@@ -158,7 +158,7 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
 
     FIELD-SYMBOLS <ls_payload> TYPE zbp_r_pru_message=>ts_doc_recognition.
 
-    lv_gemini_url = `https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`.
+    lv_gemini_url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`.
     TRY.
         lo_http_destination = cl_http_destination_provider=>create_by_url( i_url = lv_gemini_url ).
         lo_http_client = cl_web_http_client_manager=>create_by_http_destination( i_destination = lo_http_destination ).
@@ -172,7 +172,7 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
     lo_http_request->set_header_field( i_name  = 'Content-Type'
                                        i_value = 'application/json' ).
     lo_http_request->set_header_field( i_name  = 'x-goog-api-key'
-                                       i_value = 'MY API KEY' ).
+                                       i_value = 'My key' ).
 
     CREATE DATA lr_payload TYPE (is_input_prompt-type).
 
@@ -183,6 +183,8 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
 
     /ui2/cl_json=>deserialize( EXPORTING json = is_input_prompt-string_content
                                CHANGING  data = <ls_payload> ).
+
+    CREATE DATA  ls_abap_payload.
 
     ASSIGN ls_abap_payload->* TO FIELD-SYMBOL(<ls_abap_payload>).
     IF sy-subrc <> 0.
@@ -279,6 +281,7 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
     ENDLOOP.
 
     lv_string_payload = /ui2/cl_json=>serialize( data     = ls_abap_payload
+                                                 pretty_name = /UI2/CL_JSON=>PRETTY_MODE-low_case
                                                  compress = abap_true ).
 
     IF lv_string_payload IS INITIAL.
