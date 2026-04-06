@@ -1,0 +1,184 @@
+@Metadata.layer: #CORE
+@UI.headerInfo.title.type: #STANDARD
+@UI.headerInfo.title.value: 'Alertuuid'
+@UI.headerInfo.description.type: #STANDARD
+@UI.headerInfo.description.value: 'Alertuuid'
+annotate view ZC_PRU_CMR_ALERT with
+{
+  @EndUserText.label: 'Alertuuid'
+  @UI.facet: [ {
+    label: 'General Information', 
+    id: 'GeneralInfo', 
+    purpose: #STANDARD, 
+    position: 10 , 
+    type: #IDENTIFICATION_REFERENCE
+  } ]
+  @UI.identification: [ {
+    position: 10 , 
+    label: 'Alertuuid'
+  } ]
+  @UI.lineItem: [ {
+    position: 10 , 
+    label: 'Alertuuid'
+  } ]
+  @UI.selectionField: [ {
+    position: 10 
+  } ]
+  Alertuuid;
+  
+  @EndUserText.label: 'Cmruuid'
+  @UI.identification: [ {
+    position: 20 , 
+    label: 'Cmruuid'
+  } ]
+  @UI.lineItem: [ {
+    position: 20 , 
+    label: 'Cmruuid'
+  } ]
+  @UI.selectionField: [ {
+    position: 20 
+  } ]
+  Cmruuid;
+  
+  @EndUserText.label: 'Cmrid'
+  @UI.identification: [ {
+    position: 30 , 
+    label: 'Cmrid'
+  } ]
+  @UI.lineItem: [ {
+    position: 30 , 
+    label: 'Cmrid'
+  } ]
+  @UI.selectionField: [ {
+    position: 30 
+  } ]
+  Cmrid;
+  
+  @EndUserText.label: 'Cmritemuuid'
+  @UI.identification: [ {
+    position: 40 , 
+    label: 'Cmritemuuid'
+  } ]
+  @UI.lineItem: [ {
+    position: 40 , 
+    label: 'Cmritemuuid'
+  } ]
+  @UI.selectionField: [ {
+    position: 40 
+  } ]
+  Cmritemuuid;
+  
+  @EndUserText.label: 'Itemposition'
+  @UI.identification: [ {
+    position: 50 , 
+    label: 'Itemposition'
+  } ]
+  @UI.lineItem: [ {
+    position: 50 , 
+    label: 'Itemposition'
+  } ]
+  @UI.selectionField: [ {
+    position: 50 
+  } ]
+  Itemposition;
+  
+  @EndUserText.label: 'Natureofgoods'
+  @UI.identification: [ {
+    position: 60 , 
+    label: 'Natureofgoods'
+  } ]
+  @UI.lineItem: [ {
+    position: 60 , 
+    label: 'Natureofgoods'
+  } ]
+  @UI.selectionField: [ {
+    position: 60 
+  } ]
+  Natureofgoods;
+  
+  @EndUserText.label: 'Alerttype'
+  @UI.identification: [ {
+    position: 70 , 
+    label: 'Alerttype'
+  } ]
+  @UI.lineItem: [ {
+    position: 70 , 
+    label: 'Alerttype'
+  } ]
+  @UI.selectionField: [ {
+    position: 70 
+  } ]
+  Alerttype;
+  
+  @EndUserText.label: 'Alertmessage'
+  @UI.identification: [ {
+    position: 80 , 
+    label: 'Alertmessage'
+  } ]
+  @UI.lineItem: [ {
+    position: 80 , 
+    label: 'Alertmessage'
+  } ]
+  @UI.selectionField: [ {
+    position: 80 
+  } ]
+  Alertmessage;
+  
+  @UI.identification: [ {
+    position: 90 
+  } ]
+  @UI.lineItem: [ {
+    position: 90 
+  } ]
+  @UI.selectionField: [ {
+    position: 90 
+  } ]
+  Createdby;
+  
+  @UI.identification: [ {
+    position: 100 
+  } ]
+  @UI.lineItem: [ {
+    position: 100 
+  } ]
+  @UI.selectionField: [ {
+    position: 100 
+  } ]
+  Createdat;
+  
+  @UI.identification: [ {
+    position: 110 
+  } ]
+  @UI.lineItem: [ {
+    position: 110 
+  } ]
+  @UI.selectionField: [ {
+    position: 110 
+  } ]
+  Lastchangedby;
+  
+  @UI.identification: [ {
+    position: 120 
+  } ]
+  @UI.lineItem: [ {
+    position: 120 
+  } ]
+  @UI.selectionField: [ {
+    position: 120 
+  } ]
+  Lastchangedat;
+  
+  @EndUserText.label: '_BaseEntity'
+  @UI.identification: [ {
+    position: 130 , 
+    label: '_BaseEntity'
+  } ]
+  @UI.lineItem: [ {
+    position: 130 , 
+    label: '_BaseEntity'
+  } ]
+  @UI.selectionField: [ {
+    position: 130 
+  } ]
+  _BaseEntity;
+}

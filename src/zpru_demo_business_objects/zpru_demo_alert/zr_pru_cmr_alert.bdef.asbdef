@@ -1,0 +1,52 @@
+managed implementation in class ZBP_R_PRU_CMR_ALERT unique;
+strict ( 2 );
+with draft;
+extensible;
+define behavior for ZR_PRU_CMR_ALERT alias ZrPruCmrAlert
+persistent table ZPRU_CMR_ALERT
+extensible
+draft table ZPRU_CMR_ALERT_D
+etag master Lastchangedat
+lock master total etag Lastchangedat
+authorization master( global )
+{
+  field ( mandatory : create )
+   Alertuuid;
+
+  field ( readonly )
+   Createdby,
+   Createdat,
+   Lastchangedby,
+   Lastchangedat;
+
+  field ( readonly : update )
+   Alertuuid;
+
+
+  create;
+  update;
+  delete;
+
+  draft action Activate optimized;
+  draft action Discard;
+  draft action Edit;
+  draft action Resume;
+  draft determine action Prepare;
+
+  mapping for ZPRU_CMR_ALERT corresponding extensible
+  {
+    Alertuuid = ALERTUUID;
+    Cmruuid = CMRUUID;
+    Cmrid = CMRID;
+    Cmritemuuid = CMRITEMUUID;
+    Itemposition = ITEMPOSITION;
+    Natureofgoods = NATUREOFGOODS;
+    Alerttype = ALERTTYPE;
+    Alertmessage = ALERTMESSAGE;
+    Createdby = CREATEDBY;
+    Createdat = CREATEDAT;
+    Lastchangedby = LASTCHANGEDBY;
+    Lastchangedat = LASTCHANGEDAT;
+  }
+
+}

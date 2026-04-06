@@ -1,0 +1,11 @@
+@EndUserText: {
+  label: 'Service Definition for ZC_PRU_CMR_ALERT'
+}
+@ObjectModel: {
+  leadingEntity: {
+    name: 'ZC_PRU_CMR_ALERT'
+  }
+}
+define service ZUI_PRU_CMR_ALERT_O4 provider contracts odata_v4_ui {
+  expose ZC_PRU_CMR_ALERT;
+}

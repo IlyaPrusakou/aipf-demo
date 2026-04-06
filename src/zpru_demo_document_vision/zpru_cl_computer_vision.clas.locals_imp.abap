@@ -886,7 +886,8 @@ CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
 
     " --- Persist alerts ---
     IF lt_alerts_db IS NOT INITIAL.
-      INSERT zpru_cmr_alert FROM TABLE @lt_alerts_db ACCEPTING DUPLICATE KEYS.
+*      INSERT zpru_cmr_alert FROM TABLE @lt_alerts_db ACCEPTING DUPLICATE KEYS.
+" qqq add rap EML statement
       IF sy-subrc <> 0 AND sy-subrc <> 4.
         ev_error_flag = abap_true.
         RETURN.
