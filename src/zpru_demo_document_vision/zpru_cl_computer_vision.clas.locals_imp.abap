@@ -580,6 +580,24 @@ CLASS lcl_adf_create_cmr IMPLEMENTATION.
       lt_items_all = CORRESPONDING #( BASE ( lt_items_all ) lt_items ).
     ENDLOOP.
 
+    " Determine next CMRID: select max from DB via CDS, increment by 1
+    SELECT MAX( cmrid )
+      FROM zr_pru_cmr_header
+      INTO @DATA(lv_max_cmrid).
+
+    DATA(lv_next_cmrid_num) = CONV i( lv_max_cmrid ) + 1.
+
+    LOOP AT lt_headers_all ASSIGNING FIELD-SYMBOL(<ls_header_cmrid>).
+      <ls_header_cmrid>-cmrid = lv_next_cmrid_num.
+
+      LOOP AT lt_items_all ASSIGNING FIELD-SYMBOL(<ls_item_cmrid>)
+           WHERE cmruuid = <ls_header_cmrid>-cmruuid.
+        <ls_item_cmrid>-cmrid = <ls_header_cmrid>-cmrid.
+      ENDLOOP.
+
+      lv_next_cmrid_num += 1.
+    ENDLOOP.
+
     DATA(lv_item_cid) = 1.
     LOOP AT lt_headers_all ASSIGNING FIELD-SYMBOL(<ls_header>).
 
