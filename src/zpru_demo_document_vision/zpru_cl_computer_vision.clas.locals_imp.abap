@@ -946,15 +946,15 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
            tt_alerts TYPE STANDARD TABLE OF ts_alert WITH EMPTY KEY.
 
     TYPES: BEGIN OF ts_finding_out,
-             findinguuid   TYPE zpru_cmr_validation-findinguuid,
-             cmruuid       TYPE zpru_cmr_validation-cmruuid,
-             cmrid         TYPE zpru_cmr_validation-cmrid,
-             cmritemuuid   TYPE zpru_cmr_validation-cmritemuuid,
-             itemposition  TYPE zpru_cmr_validation-itemposition,
-             findingstatus TYPE zpru_cmr_validation-findingstatus,
-             findingtype   TYPE zpru_cmr_validation-findingtype,
-             fieldname     TYPE zpru_cmr_validation-fieldname,
-             findingmsg    TYPE zpru_cmr_validation-findingmsg,
+             findinguuid   TYPE zpru_cmr_valid-findinguuid,
+             cmruuid       TYPE zpru_cmr_valid-cmruuid,
+             cmrid         TYPE zpru_cmr_valid-cmrid,
+             cmritemuuid   TYPE zpru_cmr_valid-cmritemuuid,
+             itemposition  TYPE zpru_cmr_valid-itemposition,
+             findingstatus TYPE zpru_cmr_valid-findingstatus,
+             findingtype   TYPE zpru_cmr_valid-findingtype,
+             fieldname     TYPE zpru_cmr_valid-fieldname,
+             findingmsg    TYPE zpru_cmr_valid-findingmsg,
            END OF ts_finding_out,
            tt_findings_out TYPE STANDARD TABLE OF ts_finding_out WITH EMPTY KEY.
 
@@ -973,14 +973,14 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
     DATA lt_headers      TYPE tt_headers.
     DATA lt_items        TYPE tt_items.
     DATA lt_alerts       TYPE tt_alerts.
-    DATA lt_findings_db  TYPE STANDARD TABLE OF zpru_cmr_validation WITH EMPTY KEY.
+    DATA lt_findings_db  TYPE STANDARD TABLE OF zpru_cmr_valid WITH EMPTY KEY.
     DATA lt_findings_out TYPE tt_findings_out.
     DATA lt_cmr_status   TYPE tt_cmr_status.
     DATA ls_output       TYPE ts_validation_output.
     DATA lv_headers_json TYPE string.
     DATA lv_items_json   TYPE string.
     DATA lv_alerts_json  TYPE string.
-    DATA ls_finding_db   TYPE zpru_cmr_validation.
+    DATA ls_finding_db   TYPE zpru_cmr_valid.
     DATA ls_finding_out  TYPE ts_finding_out.
 
     " --- Read from controller data board ---
@@ -1301,7 +1301,7 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
 
     " --- Persist findings ---
     IF lt_findings_db IS NOT INITIAL.
-      INSERT zpru_cmr_validation FROM TABLE @lt_findings_db ACCEPTING DUPLICATE KEYS.
+      INSERT zpru_cmr_valid FROM TABLE @lt_findings_db ACCEPTING DUPLICATE KEYS.
       IF sy-subrc <> 0 AND sy-subrc <> 4.
         ev_error_flag = abap_true.
         RETURN.
