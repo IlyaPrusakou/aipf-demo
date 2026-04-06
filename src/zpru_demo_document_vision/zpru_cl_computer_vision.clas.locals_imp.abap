@@ -392,6 +392,11 @@ DATA(lv_raw_response) = |[| &&
     <ls_execution_plan>-sequence  = 2.
     <ls_execution_plan>-toolname  = 'CLASSIFY_DANGER_GOODS'.
 
+    APPEND INITIAL LINE TO et_execution_plan ASSIGNING <ls_execution_plan>.
+    <ls_execution_plan>-agentuuid = is_agent-agentuuid.
+    <ls_execution_plan>-sequence  = 3.
+    <ls_execution_plan>-toolname  = 'VALIDATE_CMR'.
+
     ev_langu = sy-langu.
 
   ENDMETHOD.
@@ -903,6 +908,418 @@ CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
 ENDCLASS.
 
 
+CLASS lcl_adf_validate_cmr IMPLEMENTATION.
+  METHOD execute_code_int.
+    TYPES: BEGIN OF ts_header,
+             cmruuid         TYPE zpru_cmr_header-cmruuid,
+             cmrid           TYPE zpru_cmr_header-cmrid,
+             senderinfo      TYPE zpru_cmr_header-senderinfo,
+             consigneeinfo   TYPE zpru_cmr_header-consigneeinfo,
+             deliveryplace   TYPE zpru_cmr_header-deliveryplace,
+             takingoverplace TYPE zpru_cmr_header-takingoverplace,
+             takingoverdate  TYPE zpru_cmr_header-takingoverdate,
+             carrierinfo     TYPE zpru_cmr_header-carrierinfo,
+             cashondelivery  TYPE zpru_cmr_header-cashondelivery,
+             currency        TYPE zpru_cmr_header-currency,
+           END OF ts_header,
+           tt_headers TYPE STANDARD TABLE OF ts_header WITH EMPTY KEY.
+
+    TYPES: BEGIN OF ts_item,
+             cmruuid            TYPE zpru_cmr_item-cmruuid,
+             cmritemuuid        TYPE zpru_cmr_item-cmritemuuid,
+             cmrid              TYPE zpru_cmr_item-cmrid,
+             itemposition       TYPE zpru_cmr_item-itemposition,
+             natureofgoods      TYPE zpru_cmr_item-natureofgoods,
+             grossweight        TYPE zpru_cmr_item-grossweight,
+             weightunitfield    TYPE zpru_cmr_item-weightunitfield,
+             unitednationnumber TYPE zpru_cmr_item-unitednationnumber,
+             hazardclass        TYPE zpru_cmr_item-hazardclass,
+             packinggroup       TYPE zpru_cmr_item-packinggroup,
+           END OF ts_item,
+           tt_items TYPE STANDARD TABLE OF ts_item WITH EMPTY KEY.
+
+    TYPES: BEGIN OF ts_alert,
+             alertuuid   TYPE zpru_cmr_alert-alertuuid,
+             cmruuid     TYPE zpru_cmr_alert-cmruuid,
+             cmritemuuid TYPE zpru_cmr_alert-cmritemuuid,
+           END OF ts_alert,
+           tt_alerts TYPE STANDARD TABLE OF ts_alert WITH EMPTY KEY.
+
+    TYPES: BEGIN OF ts_finding_out,
+             findinguuid   TYPE zpru_cmr_validation-findinguuid,
+             cmruuid       TYPE zpru_cmr_validation-cmruuid,
+             cmrid         TYPE zpru_cmr_validation-cmrid,
+             cmritemuuid   TYPE zpru_cmr_validation-cmritemuuid,
+             itemposition  TYPE zpru_cmr_validation-itemposition,
+             findingstatus TYPE zpru_cmr_validation-findingstatus,
+             findingtype   TYPE zpru_cmr_validation-findingtype,
+             fieldname     TYPE zpru_cmr_validation-fieldname,
+             findingmsg    TYPE zpru_cmr_validation-findingmsg,
+           END OF ts_finding_out,
+           tt_findings_out TYPE STANDARD TABLE OF ts_finding_out WITH EMPTY KEY.
+
+    TYPES: BEGIN OF ts_cmr_status,
+             cmruuid       TYPE zpru_cmr_header-cmruuid,
+             cmrid         TYPE zpru_cmr_header-cmrid,
+             overallstatus TYPE char10,
+           END OF ts_cmr_status,
+           tt_cmr_status TYPE STANDARD TABLE OF ts_cmr_status WITH EMPTY KEY.
+
+    TYPES: BEGIN OF ts_validation_output,
+             cmrstatus TYPE tt_cmr_status,
+             findings  TYPE tt_findings_out,
+           END OF ts_validation_output.
+
+    DATA lt_headers      TYPE tt_headers.
+    DATA lt_items        TYPE tt_items.
+    DATA lt_alerts       TYPE tt_alerts.
+    DATA lt_findings_db  TYPE STANDARD TABLE OF zpru_cmr_validation WITH EMPTY KEY.
+    DATA lt_findings_out TYPE tt_findings_out.
+    DATA lt_cmr_status   TYPE tt_cmr_status.
+    DATA ls_output       TYPE ts_validation_output.
+    DATA lv_headers_json TYPE string.
+    DATA lv_items_json   TYPE string.
+    DATA lv_alerts_json  TYPE string.
+    DATA ls_finding_db   TYPE zpru_cmr_validation.
+    DATA ls_finding_out  TYPE ts_finding_out.
+
+    " --- Read from controller data board ---
+    SORT io_controller->mt_input_output BY number ASCENDING.
+    LOOP AT io_controller->mt_input_output ASSIGNING FIELD-SYMBOL(<ls_io>).
+      READ TABLE <ls_io>-key_value_pairs WITH KEY name = 'CMRHEADERS'
+           ASSIGNING FIELD-SYMBOL(<ls_kvp>).
+      IF sy-subrc = 0.
+        lv_headers_json = <ls_kvp>-value.
+      ENDIF.
+
+      READ TABLE <ls_io>-key_value_pairs WITH KEY name = 'CMRITEMS'
+           ASSIGNING <ls_kvp>.
+      IF sy-subrc = 0.
+        lv_items_json = <ls_kvp>-value.
+      ENDIF.
+
+      READ TABLE <ls_io>-key_value_pairs WITH KEY name = 'CMRALERTS'
+           ASSIGNING <ls_kvp>.
+      IF sy-subrc = 0.
+        lv_alerts_json = <ls_kvp>-value.
+      ENDIF.
+    ENDLOOP.
+
+    IF lv_headers_json IS INITIAL OR lv_items_json IS INITIAL.
+      ev_error_flag = abap_true.
+      RETURN.
+    ENDIF.
+
+    /ui2/cl_json=>deserialize( EXPORTING json          = lv_headers_json
+                                          hex_as_base64 = abap_false
+                               CHANGING  data          = lt_headers ).
+    /ui2/cl_json=>deserialize( EXPORTING json          = lv_items_json
+                                          hex_as_base64 = abap_false
+                               CHANGING  data          = lt_items ).
+    IF lv_alerts_json IS NOT INITIAL.
+      /ui2/cl_json=>deserialize( EXPORTING json          = lv_alerts_json
+                                            hex_as_base64 = abap_false
+                                 CHANGING  data          = lt_alerts ).
+    ENDIF.
+
+    " --- Validate each CMR header ---
+    LOOP AT lt_headers ASSIGNING FIELD-SYMBOL(<ls_hdr>).
+
+      IF <ls_hdr>-senderinfo IS INITIAL.
+        CLEAR: ls_finding_db, ls_finding_out.
+        ls_finding_db-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
+        ls_finding_db-cmruuid       = <ls_hdr>-cmruuid.
+        ls_finding_db-cmrid         = <ls_hdr>-cmrid.
+        ls_finding_db-findingstatus = 'INCOMPLETE'.
+        ls_finding_db-findingtype   = 'MANDATORY_FIELD'.
+        ls_finding_db-fieldname     = 'SENDERINFO'.
+        ls_finding_db-findingmsg    = 'Sender information is missing'.
+        ls_finding_db-createdby     = sy-uname.
+        GET TIME STAMP FIELD ls_finding_db-createdat.
+        APPEND ls_finding_db TO lt_findings_db.
+        MOVE-CORRESPONDING ls_finding_db TO ls_finding_out.
+        APPEND ls_finding_out TO lt_findings_out.
+      ENDIF.
+
+      IF <ls_hdr>-consigneeinfo IS INITIAL.
+        CLEAR: ls_finding_db, ls_finding_out.
+        ls_finding_db-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
+        ls_finding_db-cmruuid       = <ls_hdr>-cmruuid.
+        ls_finding_db-cmrid         = <ls_hdr>-cmrid.
+        ls_finding_db-findingstatus = 'INCOMPLETE'.
+        ls_finding_db-findingtype   = 'MANDATORY_FIELD'.
+        ls_finding_db-fieldname     = 'CONSIGNEEINFO'.
+        ls_finding_db-findingmsg    = 'Consignee information is missing'.
+        ls_finding_db-createdby     = sy-uname.
+        GET TIME STAMP FIELD ls_finding_db-createdat.
+        APPEND ls_finding_db TO lt_findings_db.
+        MOVE-CORRESPONDING ls_finding_db TO ls_finding_out.
+        APPEND ls_finding_out TO lt_findings_out.
+      ENDIF.
+
+      IF <ls_hdr>-carrierinfo IS INITIAL.
+        CLEAR: ls_finding_db, ls_finding_out.
+        ls_finding_db-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
+        ls_finding_db-cmruuid       = <ls_hdr>-cmruuid.
+        ls_finding_db-cmrid         = <ls_hdr>-cmrid.
+        ls_finding_db-findingstatus = 'INCOMPLETE'.
+        ls_finding_db-findingtype   = 'MANDATORY_FIELD'.
+        ls_finding_db-fieldname     = 'CARRIERINFO'.
+        ls_finding_db-findingmsg    = 'Carrier information is missing'.
+        ls_finding_db-createdby     = sy-uname.
+        GET TIME STAMP FIELD ls_finding_db-createdat.
+        APPEND ls_finding_db TO lt_findings_db.
+        MOVE-CORRESPONDING ls_finding_db TO ls_finding_out.
+        APPEND ls_finding_out TO lt_findings_out.
+      ENDIF.
+
+      IF <ls_hdr>-takingoverplace IS INITIAL.
+        CLEAR: ls_finding_db, ls_finding_out.
+        ls_finding_db-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
+        ls_finding_db-cmruuid       = <ls_hdr>-cmruuid.
+        ls_finding_db-cmrid         = <ls_hdr>-cmrid.
+        ls_finding_db-findingstatus = 'INCOMPLETE'.
+        ls_finding_db-findingtype   = 'MANDATORY_FIELD'.
+        ls_finding_db-fieldname     = 'TAKINGOVERPLACE'.
+        ls_finding_db-findingmsg    = 'Taking-over place is missing'.
+        ls_finding_db-createdby     = sy-uname.
+        GET TIME STAMP FIELD ls_finding_db-createdat.
+        APPEND ls_finding_db TO lt_findings_db.
+        MOVE-CORRESPONDING ls_finding_db TO ls_finding_out.
+        APPEND ls_finding_out TO lt_findings_out.
+      ENDIF.
+
+      IF <ls_hdr>-deliveryplace IS INITIAL.
+        CLEAR: ls_finding_db, ls_finding_out.
+        ls_finding_db-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
+        ls_finding_db-cmruuid       = <ls_hdr>-cmruuid.
+        ls_finding_db-cmrid         = <ls_hdr>-cmrid.
+        ls_finding_db-findingstatus = 'INCOMPLETE'.
+        ls_finding_db-findingtype   = 'MANDATORY_FIELD'.
+        ls_finding_db-fieldname     = 'DELIVERYPLACE'.
+        ls_finding_db-findingmsg    = 'Delivery place is missing'.
+        ls_finding_db-createdby     = sy-uname.
+        GET TIME STAMP FIELD ls_finding_db-createdat.
+        APPEND ls_finding_db TO lt_findings_db.
+        MOVE-CORRESPONDING ls_finding_db TO ls_finding_out.
+        APPEND ls_finding_out TO lt_findings_out.
+      ENDIF.
+
+      IF <ls_hdr>-takingoverdate IS INITIAL OR <ls_hdr>-takingoverdate = '00000000'.
+        CLEAR: ls_finding_db, ls_finding_out.
+        ls_finding_db-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
+        ls_finding_db-cmruuid       = <ls_hdr>-cmruuid.
+        ls_finding_db-cmrid         = <ls_hdr>-cmrid.
+        ls_finding_db-findingstatus = 'INCOMPLETE'.
+        ls_finding_db-findingtype   = 'DATE_CHECK'.
+        ls_finding_db-fieldname     = 'TAKINGOVERDATE'.
+        ls_finding_db-findingmsg    = 'Taking-over date is missing'.
+        ls_finding_db-createdby     = sy-uname.
+        GET TIME STAMP FIELD ls_finding_db-createdat.
+        APPEND ls_finding_db TO lt_findings_db.
+        MOVE-CORRESPONDING ls_finding_db TO ls_finding_out.
+        APPEND ls_finding_out TO lt_findings_out.
+      ENDIF.
+
+      IF <ls_hdr>-cashondelivery > 0 AND <ls_hdr>-currency IS INITIAL.
+        CLEAR: ls_finding_db, ls_finding_out.
+        ls_finding_db-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
+        ls_finding_db-cmruuid       = <ls_hdr>-cmruuid.
+        ls_finding_db-cmrid         = <ls_hdr>-cmrid.
+        ls_finding_db-findingstatus = 'INCOMPLETE'.
+        ls_finding_db-findingtype   = 'MANDATORY_FIELD'.
+        ls_finding_db-fieldname     = 'CURRENCY'.
+        ls_finding_db-findingmsg    = 'Currency required when cash on delivery is set'.
+        ls_finding_db-createdby     = sy-uname.
+        GET TIME STAMP FIELD ls_finding_db-createdat.
+        APPEND ls_finding_db TO lt_findings_db.
+        MOVE-CORRESPONDING ls_finding_db TO ls_finding_out.
+        APPEND ls_finding_out TO lt_findings_out.
+      ENDIF.
+
+      " Item count check
+      DATA(lv_item_count) = REDUCE i( INIT n = 0
+                                      FOR <it> IN lt_items
+                                      WHERE ( cmruuid = <ls_hdr>-cmruuid )
+                                      NEXT n = n + 1 ).
+      IF lv_item_count = 0.
+        CLEAR: ls_finding_db, ls_finding_out.
+        ls_finding_db-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
+        ls_finding_db-cmruuid       = <ls_hdr>-cmruuid.
+        ls_finding_db-cmrid         = <ls_hdr>-cmrid.
+        ls_finding_db-findingstatus = 'INVALID'.
+        ls_finding_db-findingtype   = 'ITEM_COUNT'.
+        ls_finding_db-fieldname     = ''.
+        ls_finding_db-findingmsg    = 'No items found for CMR'.
+        ls_finding_db-createdby     = sy-uname.
+        GET TIME STAMP FIELD ls_finding_db-createdat.
+        APPEND ls_finding_db TO lt_findings_db.
+        MOVE-CORRESPONDING ls_finding_db TO ls_finding_out.
+        APPEND ls_finding_out TO lt_findings_out.
+      ENDIF.
+
+      " Per-item checks
+      LOOP AT lt_items ASSIGNING FIELD-SYMBOL(<ls_item>)
+           WHERE cmruuid = <ls_hdr>-cmruuid.
+
+        IF <ls_item>-natureofgoods IS INITIAL.
+          CLEAR: ls_finding_db, ls_finding_out.
+          ls_finding_db-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
+          ls_finding_db-cmruuid       = <ls_hdr>-cmruuid.
+          ls_finding_db-cmrid         = <ls_hdr>-cmrid.
+          ls_finding_db-cmritemuuid   = <ls_item>-cmritemuuid.
+          ls_finding_db-itemposition  = <ls_item>-itemposition.
+          ls_finding_db-findingstatus = 'INCOMPLETE'.
+          ls_finding_db-findingtype   = 'MANDATORY_FIELD'.
+          ls_finding_db-fieldname     = 'NATUREOFGOODS'.
+          ls_finding_db-findingmsg    = |Nature of goods is missing for item { <ls_item>-itemposition }|.
+          ls_finding_db-createdby     = sy-uname.
+          GET TIME STAMP FIELD ls_finding_db-createdat.
+          APPEND ls_finding_db TO lt_findings_db.
+          MOVE-CORRESPONDING ls_finding_db TO ls_finding_out.
+          APPEND ls_finding_out TO lt_findings_out.
+        ENDIF.
+
+        IF <ls_item>-grossweight <= 0.
+          CLEAR: ls_finding_db, ls_finding_out.
+          ls_finding_db-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
+          ls_finding_db-cmruuid       = <ls_hdr>-cmruuid.
+          ls_finding_db-cmrid         = <ls_hdr>-cmrid.
+          ls_finding_db-cmritemuuid   = <ls_item>-cmritemuuid.
+          ls_finding_db-itemposition  = <ls_item>-itemposition.
+          ls_finding_db-findingstatus = 'INCOMPLETE'.
+          ls_finding_db-findingtype   = 'WEIGHT_CHECK'.
+          ls_finding_db-fieldname     = 'GROSSWEIGHT'.
+          ls_finding_db-findingmsg    = |Gross weight must be greater than zero for item { <ls_item>-itemposition }|.
+          ls_finding_db-createdby     = sy-uname.
+          GET TIME STAMP FIELD ls_finding_db-createdat.
+          APPEND ls_finding_db TO lt_findings_db.
+          MOVE-CORRESPONDING ls_finding_db TO ls_finding_out.
+          APPEND ls_finding_out TO lt_findings_out.
+        ENDIF.
+
+        IF <ls_item>-weightunitfield IS INITIAL.
+          CLEAR: ls_finding_db, ls_finding_out.
+          ls_finding_db-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
+          ls_finding_db-cmruuid       = <ls_hdr>-cmruuid.
+          ls_finding_db-cmrid         = <ls_hdr>-cmrid.
+          ls_finding_db-cmritemuuid   = <ls_item>-cmritemuuid.
+          ls_finding_db-itemposition  = <ls_item>-itemposition.
+          ls_finding_db-findingstatus = 'INCOMPLETE'.
+          ls_finding_db-findingtype   = 'MANDATORY_FIELD'.
+          ls_finding_db-fieldname     = 'WEIGHTUNITFIELD'.
+          ls_finding_db-findingmsg    = |Weight unit is missing for item { <ls_item>-itemposition }|.
+          ls_finding_db-createdby     = sy-uname.
+          GET TIME STAMP FIELD ls_finding_db-createdat.
+          APPEND ls_finding_db TO lt_findings_db.
+          MOVE-CORRESPONDING ls_finding_db TO ls_finding_out.
+          APPEND ls_finding_out TO lt_findings_out.
+        ENDIF.
+
+        " DG cross-check: item flagged as dangerous goods → UN/hazard/packing fields required
+        READ TABLE lt_alerts WITH KEY cmritemuuid = <ls_item>-cmritemuuid
+             TRANSPORTING NO FIELDS.
+        IF sy-subrc = 0.
+          IF <ls_item>-unitednationnumber IS INITIAL.
+            CLEAR: ls_finding_db, ls_finding_out.
+            ls_finding_db-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
+            ls_finding_db-cmruuid       = <ls_hdr>-cmruuid.
+            ls_finding_db-cmrid         = <ls_hdr>-cmrid.
+            ls_finding_db-cmritemuuid   = <ls_item>-cmritemuuid.
+            ls_finding_db-itemposition  = <ls_item>-itemposition.
+            ls_finding_db-findingstatus = 'INCOMPLETE'.
+            ls_finding_db-findingtype   = 'DG_FIELDS'.
+            ls_finding_db-fieldname     = 'UNITEDNATIONNUMBER'.
+            ls_finding_db-findingmsg    = |UN number required for dangerous goods item { <ls_item>-itemposition }|.
+            ls_finding_db-createdby     = sy-uname.
+            GET TIME STAMP FIELD ls_finding_db-createdat.
+            APPEND ls_finding_db TO lt_findings_db.
+            MOVE-CORRESPONDING ls_finding_db TO ls_finding_out.
+            APPEND ls_finding_out TO lt_findings_out.
+          ENDIF.
+
+          IF <ls_item>-hazardclass IS INITIAL.
+            CLEAR: ls_finding_db, ls_finding_out.
+            ls_finding_db-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
+            ls_finding_db-cmruuid       = <ls_hdr>-cmruuid.
+            ls_finding_db-cmrid         = <ls_hdr>-cmrid.
+            ls_finding_db-cmritemuuid   = <ls_item>-cmritemuuid.
+            ls_finding_db-itemposition  = <ls_item>-itemposition.
+            ls_finding_db-findingstatus = 'INCOMPLETE'.
+            ls_finding_db-findingtype   = 'DG_FIELDS'.
+            ls_finding_db-fieldname     = 'HAZARDCLASS'.
+            ls_finding_db-findingmsg    = |Hazard class required for dangerous goods item { <ls_item>-itemposition }|.
+            ls_finding_db-createdby     = sy-uname.
+            GET TIME STAMP FIELD ls_finding_db-createdat.
+            APPEND ls_finding_db TO lt_findings_db.
+            MOVE-CORRESPONDING ls_finding_db TO ls_finding_out.
+            APPEND ls_finding_out TO lt_findings_out.
+          ENDIF.
+
+          IF <ls_item>-packinggroup IS INITIAL.
+            CLEAR: ls_finding_db, ls_finding_out.
+            ls_finding_db-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
+            ls_finding_db-cmruuid       = <ls_hdr>-cmruuid.
+            ls_finding_db-cmrid         = <ls_hdr>-cmrid.
+            ls_finding_db-cmritemuuid   = <ls_item>-cmritemuuid.
+            ls_finding_db-itemposition  = <ls_item>-itemposition.
+            ls_finding_db-findingstatus = 'INCOMPLETE'.
+            ls_finding_db-findingtype   = 'DG_FIELDS'.
+            ls_finding_db-fieldname     = 'PACKINGGROUP'.
+            ls_finding_db-findingmsg    = |Packing group required for dangerous goods item { <ls_item>-itemposition }|.
+            ls_finding_db-createdby     = sy-uname.
+            GET TIME STAMP FIELD ls_finding_db-createdat.
+            APPEND ls_finding_db TO lt_findings_db.
+            MOVE-CORRESPONDING ls_finding_db TO ls_finding_out.
+            APPEND ls_finding_out TO lt_findings_out.
+          ENDIF.
+        ENDIF.
+
+      ENDLOOP.
+
+      " Derive overall status for this CMR
+      APPEND INITIAL LINE TO lt_cmr_status ASSIGNING FIELD-SYMBOL(<ls_status>).
+      <ls_status>-cmruuid = <ls_hdr>-cmruuid.
+      <ls_status>-cmrid   = <ls_hdr>-cmrid.
+
+      READ TABLE lt_findings_out WITH KEY cmruuid       = <ls_hdr>-cmruuid
+                                          findingstatus = 'INVALID'
+           TRANSPORTING NO FIELDS.
+      IF sy-subrc = 0.
+        <ls_status>-overallstatus = 'INVALID'.
+      ELSE.
+        READ TABLE lt_findings_out WITH KEY cmruuid = <ls_hdr>-cmruuid
+             TRANSPORTING NO FIELDS.
+        IF sy-subrc = 0.
+          <ls_status>-overallstatus = 'INCOMPLETE'.
+        ELSE.
+          <ls_status>-overallstatus = 'VALID'.
+        ENDIF.
+      ENDIF.
+
+    ENDLOOP.
+
+    " --- Persist findings ---
+    IF lt_findings_db IS NOT INITIAL.
+      INSERT zpru_cmr_validation FROM TABLE @lt_findings_db ACCEPTING DUPLICATE KEYS.
+      IF sy-subrc <> 0 AND sy-subrc <> 4.
+        ev_error_flag = abap_true.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
+    " --- Emit output key-value pair ---
+    ls_output-cmrstatus = lt_cmr_status.
+    ls_output-findings  = lt_findings_out.
+
+    APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv>).
+    <ls_kv>-name  = 'CMRVALIDATION'.
+    <ls_kv>-value = /ui2/cl_json=>serialize( data     = ls_output
+                                              compress = abap_true ).
+  ENDMETHOD.
+ENDCLASS.
+
+
 CLASS lcl_adf_tool_provider IMPLEMENTATION.
   METHOD provide_tool_instance.
     CASE is_tool_master_data-toolname.
@@ -910,6 +1327,8 @@ CLASS lcl_adf_tool_provider IMPLEMENTATION.
         ro_executor = NEW lcl_adf_create_cmr( ).
       WHEN `CLASSIFY_DANGER_GOODS`.
         ro_executor = NEW lcl_adf_classify_danger_goods( ).
+      WHEN `VALIDATE_CMR`.
+        ro_executor = NEW lcl_adf_validate_cmr( ).
       WHEN OTHERS.
         RAISE EXCEPTION NEW zpru_cx_agent_core( ).
     ENDCASE.
@@ -936,6 +1355,8 @@ CLASS lcl_adf_schema_provider IMPLEMENTATION.
         ro_structure_schema ?= cl_abap_structdescr=>describe_by_name( p_name = `ZPRU_S_CMR_CREATE_REQUEST` ).
       WHEN `CLASSIFY_DANGER_GOODS`.
         ro_structure_schema ?= cl_abap_structdescr=>describe_by_name( p_name = `ZPRU_S_CMR_CLASSIFY_REQ` ).
+      WHEN `VALIDATE_CMR`.
+        ro_structure_schema ?= cl_abap_structdescr=>describe_by_name( p_name = `ZPRU_S_CMR_VALIDATE_REQ` ).
       WHEN OTHERS.
         RAISE EXCEPTION NEW zpru_cx_agent_core( ).
     ENDCASE.
