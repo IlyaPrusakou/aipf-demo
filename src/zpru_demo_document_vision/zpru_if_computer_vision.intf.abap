@@ -25,7 +25,7 @@ INTERFACE zpru_if_computer_vision
     BEGIN OF ts_cmr_classify_req,
       cmrheaders         TYPE string,
       cmritems           TYPE string,
-      cmrcreationrequest TYPE string,
+      cmrcreationcontent TYPE string,
     END OF ts_cmr_classify_req,
     tt_cmr_classify_req TYPE STANDARD TABLE OF ts_cmr_classify_req WITH EMPTY KEY.
 
@@ -34,7 +34,7 @@ INTERFACE zpru_if_computer_vision
     BEGIN OF ts_cmr_validate_req,
       cmrheaders         TYPE string,
       cmritems           TYPE string,
-      cmrcreationrequest TYPE string,
+      cmrcreationcontent TYPE string,
     END OF ts_cmr_validate_req,
     tt_cmr_validate_req TYPE STANDARD TABLE OF ts_cmr_validate_req WITH EMPTY KEY.
 
