@@ -1,0 +1,6 @@
+@EndUserText.label: 'ZPRUR_TASK'
+@MappingRole: true
+define role ZPRUR_TASK {
+  grant select on ZPRUR_TASK
+  where TRUE;
+}

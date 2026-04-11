@@ -1,0 +1,6 @@
+@EndUserText.label: 'ZPRUC_TASK'
+@MappingRole: true
+define role ZPRUC_TASK {
+  grant select on ZPRUC_TASK
+  where INHERITING CONDITIONS FROM ENTITY ZPRUR_TASK REPLACING { ROOT WITH _BaseEntity };
+}

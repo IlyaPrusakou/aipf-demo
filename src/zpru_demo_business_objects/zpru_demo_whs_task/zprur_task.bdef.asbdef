@@ -1,0 +1,56 @@
+managed implementation in class ZPRUBP_R_TASK unique;
+strict ( 2 );
+with draft;
+extensible;
+define behavior for ZPRUR_TASK alias TASK
+persistent table ZPRUTASK
+extensible
+draft table ZPRUTASK_D
+etag master LocalLastChangedAt
+lock master total etag LastChangedAt
+authorization master( global )
+{
+  field ( readonly )
+   UUID,
+   LocalCreatedBy,
+   LocalCreatedAt,
+   LocalLastChangedBy,
+   LocalLastChangedAt,
+   LastChangedAt;
+
+  field ( numbering : managed )
+   UUID;
+
+
+  create;
+  update;
+  delete;
+
+  draft action Activate optimized;
+  draft action Discard;
+  draft action Edit;
+  draft action Resume;
+  draft determine action Prepare;
+
+  mapping for ZPRUTASK corresponding extensible
+  {
+    UUID = UUID;
+    Tanum = TANUM;
+    DeliveryID = DELIVERY_ID;
+    ItemPos = ITEM_POS;
+    Material = MATERIAL;
+    Quantity = QUANTITY;
+    Unit = UNIT;
+    SourceBin = SOURCE_BIN;
+    DestBin = DEST_BIN;
+    ConfStatus = CONF_STATUS;
+    CreatedAt = CREATED_AT;
+    ConfirmedAt = CONFIRMED_AT;
+    LocalCreatedBy = LOCAL_CREATED_BY;
+    LocalCreatedAt = LOCAL_CREATED_AT;
+    LocalLastChangedBy = LOCAL_LAST_CHANGED_BY;
+    LocalLastChangedAt = LOCAL_LAST_CHANGED_AT;
+    LastChangedAt = LAST_CHANGED_AT;
+  }
+
+}

@@ -1,0 +1,231 @@
+@Metadata.layer: #CORE
+@UI.headerInfo.title.type: #STANDARD
+@UI.headerInfo.title.value: 'Tanum'
+@UI.headerInfo.description.type: #STANDARD
+@UI.headerInfo.description.value: 'Tanum'
+annotate view ZPRUC_TASK with
+{
+  @EndUserText.label: 'UUID'
+  @UI.identification: [ {
+    position: 10 , 
+    label: 'UUID'
+  } ]
+  @UI.lineItem: [ {
+    position: 10 , 
+    label: 'UUID'
+  } ]
+  @UI.selectionField: [ {
+    position: 10 
+  } ]
+  UUID;
+  
+  @EndUserText.label: 'Tanum'
+  @UI.facet: [ {
+    label: 'General Information', 
+    id: 'GeneralInfo', 
+    purpose: #STANDARD, 
+    position: 20 , 
+    type: #IDENTIFICATION_REFERENCE
+  } ]
+  @UI.identification: [ {
+    position: 20 , 
+    label: 'Tanum'
+  } ]
+  @UI.lineItem: [ {
+    position: 20 , 
+    label: 'Tanum'
+  } ]
+  @UI.selectionField: [ {
+    position: 20 
+  } ]
+  Tanum;
+  
+  @EndUserText.label: 'DeliveryID'
+  @UI.identification: [ {
+    position: 30 , 
+    label: 'DeliveryID'
+  } ]
+  @UI.lineItem: [ {
+    position: 30 , 
+    label: 'DeliveryID'
+  } ]
+  @UI.selectionField: [ {
+    position: 30 
+  } ]
+  DeliveryID;
+  
+  @EndUserText.label: 'ItemPos'
+  @UI.identification: [ {
+    position: 40 , 
+    label: 'ItemPos'
+  } ]
+  @UI.lineItem: [ {
+    position: 40 , 
+    label: 'ItemPos'
+  } ]
+  @UI.selectionField: [ {
+    position: 40 
+  } ]
+  ItemPos;
+  
+  @EndUserText.label: 'Material'
+  @UI.identification: [ {
+    position: 50 , 
+    label: 'Material'
+  } ]
+  @UI.lineItem: [ {
+    position: 50 , 
+    label: 'Material'
+  } ]
+  @UI.selectionField: [ {
+    position: 50 
+  } ]
+  Material;
+  
+  @EndUserText.label: 'Quantity'
+  @UI.identification: [ {
+    position: 60 , 
+    label: 'Quantity'
+  } ]
+  @UI.lineItem: [ {
+    position: 60 , 
+    label: 'Quantity'
+  } ]
+  @UI.selectionField: [ {
+    position: 60 
+  } ]
+  Quantity;
+  
+  @EndUserText.label: 'SourceBin'
+  @UI.identification: [ {
+    position: 70 , 
+    label: 'SourceBin'
+  } ]
+  @UI.lineItem: [ {
+    position: 70 , 
+    label: 'SourceBin'
+  } ]
+  @UI.selectionField: [ {
+    position: 70 
+  } ]
+  SourceBin;
+  
+  @EndUserText.label: 'DestBin'
+  @UI.identification: [ {
+    position: 80 , 
+    label: 'DestBin'
+  } ]
+  @UI.lineItem: [ {
+    position: 80 , 
+    label: 'DestBin'
+  } ]
+  @UI.selectionField: [ {
+    position: 80 
+  } ]
+  DestBin;
+  
+  @EndUserText.label: 'ConfStatus'
+  @UI.identification: [ {
+    position: 90 , 
+    label: 'ConfStatus'
+  } ]
+  @UI.lineItem: [ {
+    position: 90 , 
+    label: 'ConfStatus'
+  } ]
+  @UI.selectionField: [ {
+    position: 90 
+  } ]
+  ConfStatus;
+  
+  @UI.identification: [ {
+    position: 100 
+  } ]
+  @UI.lineItem: [ {
+    position: 100 
+  } ]
+  @UI.selectionField: [ {
+    position: 100 
+  } ]
+  CreatedAt;
+  
+  @UI.identification: [ {
+    position: 110 
+  } ]
+  @UI.lineItem: [ {
+    position: 110 
+  } ]
+  @UI.selectionField: [ {
+    position: 110 
+  } ]
+  ConfirmedAt;
+  
+  @UI.identification: [ {
+    position: 120 
+  } ]
+  @UI.lineItem: [ {
+    position: 120 
+  } ]
+  @UI.selectionField: [ {
+    position: 120 
+  } ]
+  LocalCreatedBy;
+  
+  @UI.identification: [ {
+    position: 130 
+  } ]
+  @UI.lineItem: [ {
+    position: 130 
+  } ]
+  @UI.selectionField: [ {
+    position: 130 
+  } ]
+  LocalCreatedAt;
+  
+  @UI.identification: [ {
+    position: 140 
+  } ]
+  @UI.lineItem: [ {
+    position: 140 
+  } ]
+  @UI.selectionField: [ {
+    position: 140 
+  } ]
+  LocalLastChangedBy;
+  
+  @UI.identification: [ {
+    position: 150 
+  } ]
+  @UI.lineItem: [ {
+    position: 150 
+  } ]
+  @UI.selectionField: [ {
+    position: 150 
+  } ]
+  LocalLastChangedAt;
+  
+  @UI.identification: [ {
+    position: 160 
+  } ]
+  @UI.lineItem: [ {
+    position: 160 
+  } ]
+  @UI.selectionField: [ {
+    position: 160 
+  } ]
+  LastChangedAt;
+  
+  @EndUserText.label: '_BaseEntity'
+  @UI.identification: [ {
+    position: 170 , 
+    label: '_BaseEntity'
+  } ]
+  @UI.lineItem: [ {
+    position: 170 , 
+    label: '_BaseEntity'
+  } ]
+  @UI.selectionField: [ {
+    position: 170 
+  } ]
+  _BaseEntity;
+}

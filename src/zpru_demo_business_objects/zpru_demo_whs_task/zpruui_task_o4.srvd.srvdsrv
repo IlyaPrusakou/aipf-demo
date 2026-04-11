@@ -1,0 +1,11 @@
+@EndUserText: {
+  label: 'Service Definition for ZPRUC_TASK'
+}
+@ObjectModel: {
+  leadingEntity: {
+    name: 'ZPRUC_TASK'
+  }
+}
+define service ZPRUUI_TASK_O4 provider contracts odata_v4_ui {
+  expose ZPRUC_TASK as TASK;
+}
