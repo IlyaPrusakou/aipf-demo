@@ -649,17 +649,17 @@ CLASS lcl_adf_create_cmr IMPLEMENTATION.
     lt_cmr_item_context = CORRESPONDING #( lt_new_cmr_items MAPPING FROM ENTITY ).
 
     APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_key_value>).
-    <ls_key_value>-name  = 'CMRHEADERS'.
+    <ls_key_value>-name  = zpru_if_computer_vision=>cs_context_field-cmrheaders-field_name.
     <ls_key_value>-value = /ui2/cl_json=>serialize( data     = lt_cmr_header_context
                                                     compress = abap_true ).
 
     APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING <ls_key_value>.
-    <ls_key_value>-name  = 'CMRITEMS'.
+    <ls_key_value>-name  = zpru_if_computer_vision=>cs_context_field-cmritems-field_name.
     <ls_key_value>-value = /ui2/cl_json=>serialize( data     = lt_cmr_item_context
                                                     compress = abap_true ).
 
     APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING <ls_key_value>.
-    <ls_key_value>-name  = 'CMRCREATIONCONTENT'.
+    <ls_key_value>-name  = zpru_if_computer_vision=>cs_context_field-cmrcreationcontent-field_name.
     <ls_key_value>-value = /ui2/cl_json=>serialize( data     = lt_creation_content
                                                     compress = abap_true ).
   ENDMETHOD.
@@ -688,7 +688,7 @@ CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
 
     IF lt_cmr_item_context IS INITIAL.
       APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv_empty>).
-      <ls_kv_empty>-name  = 'CMRALERTS'.
+      <ls_kv_empty>-name  = zpru_if_computer_vision=>cs_context_field-cmralerts-field_name.
       <ls_kv_empty>-value = ``.
       RETURN.
     ENDIF.
@@ -877,7 +877,7 @@ CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
 
     " --- Emit output key-value pair ---
     APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv>).
-    <ls_kv>-name  = 'CMRALERTS'.
+    <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-cmralerts-field_name.
     <ls_kv>-value = /ui2/cl_json=>serialize( data     = lt_cmr_alert_context
                                              compress = abap_true ).
   ENDMETHOD.
@@ -892,10 +892,10 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
     DATA lt_findings_rap TYPE TABLE FOR CREATE zr_pru_cmr_valid\\zrprucmrvalid.
     DATA lt_findings_out TYPE zpru_if_computer_vision=>tt_cmr_finding.
     DATA lt_cmr_status   TYPE zpru_if_computer_vision=>tt_cmr_overall_status.
-    DATA ls_finding_out  TYPE zpru_if_computer_vision=>tS_cmr_finding.
+    DATA ls_finding_out  TYPE zpru_if_computer_vision=>ts_cmr_finding.
     DATA lv_cid_counter  TYPE i VALUE 1.
 
-    FIELD-SYMBOLS <ls_input> TYPE  zpru_if_computer_vision=>ts_cmr_validate_req.
+    FIELD-SYMBOLS <ls_input> TYPE zpru_if_computer_vision=>ts_cmr_validate_req.
 
     ASSIGN is_input->* TO <ls_input>.
     IF sy-subrc <> 0.
@@ -909,7 +909,6 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
                                          hex_as_base64 = abap_false
                                CHANGING  data          = lt_items ).
 
-    " --- Validate each CMR header ---
     LOOP AT lt_headers ASSIGNING FIELD-SYMBOL(<ls_hdr>).
 
       IF <ls_hdr>-senderinfo IS INITIAL.
@@ -1124,7 +1123,6 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
         APPEND ls_finding_out TO lt_findings_out.
       ENDIF.
 
-      " Item count check
       DATA(lv_item_count) = REDUCE i( INIT n = 0
                                       FOR <it> IN lt_items
                                       WHERE ( cmruuid = <ls_hdr>-cmruuid )
@@ -1159,7 +1157,6 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
         APPEND ls_finding_out TO lt_findings_out.
       ENDIF.
 
-      " Per-item checks
       LOOP AT lt_items ASSIGNING FIELD-SYMBOL(<ls_item>)
            WHERE cmruuid = <ls_hdr>-cmruuid.
 
@@ -1265,7 +1262,6 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
           APPEND ls_finding_out TO lt_findings_out.
         ENDIF.
 
-        " DG cross-check: item flagged as dangerous goods → UN/hazard/packing fields required
         IF line_exists( lt_alerts[ cmritemuuid = <ls_item>-cmritemuuid ] ).
           IF <ls_item>-unitednationnumber IS INITIAL.
             CLEAR ls_finding_out.
@@ -1372,7 +1368,6 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
 
       ENDLOOP.
 
-      " Derive overall status for this CMR
       APPEND INITIAL LINE TO lt_cmr_status ASSIGNING FIELD-SYMBOL(<ls_status>).
       <ls_status>-cmruuid = <ls_hdr>-cmruuid.
       <ls_status>-cmrid   = <ls_hdr>-cmrid.
@@ -1390,7 +1385,6 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
 
     ENDLOOP.
 
-    " --- Persist findings using RAP ---
     IF lt_findings_rap IS NOT INITIAL.
       MODIFY ENTITIES OF zr_pru_cmr_valid
              ENTITY zrprucmrvalid
@@ -1404,15 +1398,13 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
-    " --- Emit output key-value pair ---
-*    ls_output-cmrstatus = lt_cmr_status.
     APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv>).
-    <ls_kv>-name  = 'CMRSTATUS'.
+    <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-cmrstatus-field_name.
     <ls_kv>-value = /ui2/cl_json=>serialize( data     = lt_cmr_status
                                              compress = abap_true ).
 
     APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING <ls_kv>.
-    <ls_kv>-name  = 'CMRFINDING'.
+    <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-cmrfinding-field_name.
     <ls_kv>-value = /ui2/cl_json=>serialize( data     = lt_findings_out
                                              compress = abap_true ).
   ENDMETHOD.
