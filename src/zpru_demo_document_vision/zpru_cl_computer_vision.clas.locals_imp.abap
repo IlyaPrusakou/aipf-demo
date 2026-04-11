@@ -307,72 +307,72 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
 *
 *    DATA(lv_raw_response) = VALUE #( ls_llm_output-candidates[ 1 ]-content-parts[ 1 ]-text OPTIONAL ).
 
-""""""""""""""""""""""""""""""""""""""""""""""""""""""""" testing
+    """"""""""""""""""""""""""""""""""""""""""""""""""""""""" testing
 
-DATA(lv_raw_response) = |[| &&
-|  \{| &&
-|    "messageid": "CMR-20260314-001",| &&
-|    "attachments": [| &&
-|      \{| &&
-|        "cmrheaders": [| &&
-|          \{| &&
-|            "cmrid": "",| &&
-|            "senderinfo": "Sender LTD",| &&
-|            "consigneeinfo": "Biedronka LTD",| &&
-|            "deliveryplace": "Wrocław",| &&
-|            "takingoverplace": "Warsaw",| &&
-|            "takingoverdate": "14/03/2026",| &&
-|            "carrierinfo": "DPD Polska",| &&
-|            "successivecarrier": "Biedronka Express",| &&
-|            "carrierreservice": null,| &&
-|            "senderinstruction": "spread into markets ASAP",| &&
-|            "cashondelivery": 1344,| &&
-|            "currency": "USD",| &&
-|            "establishedplace": "Wrocław, Biskupin",| &&
-|            "establisheddate": "31/03/2026",| &&
-|            "createdby": null,| &&
-|            "createdat": null,| &&
-|            "lastchangedby": null,| &&
-|            "lastchangedat": null,| &&
-|            "cmritems": [| &&
-|              \{| &&
-|                "itemposition": "prod1",| &&
-|                "marksnumbers": "prod1",| &&
-|                "packagecount": 14,| &&
-|                "packingmethod": "box",| &&
-|                "natureofgoods": "pencils",| &&
-|                "statisticalnumber": "st-14nr",| &&
-|                "weightunitfield": "KG",| &&
-|                "volumeunitfield": "M3",| &&
-|                "grossweight": 16,| &&
-|                "volume": 1,| &&
-|                "unitednationnumber": null,| &&
-|                "hazardclass": null,| &&
-|                "packinggroup": null| &&
-|              \},| &&
-|              \{| &&
-|                "itemposition": "prod2",| &&
-|                "marksnumbers": "prod2",| &&
-|                "packagecount": 8,| &&
-|                "packingmethod": "pallet",| &&
-|                "natureofgoods": "bananas",| &&
-|                "statisticalnumber": "st-888nr",| &&
-|                "weightunitfield": "KG",| &&
-|                "volumeunitfield": "M3",| &&
-|                "grossweight": 55,| &&
-|                "volume": 5,| &&
-|                "unitednationnumber": null,| &&
-|                "hazardclass": null,| &&
-|                "packinggroup": null| &&
-|              \}| &&
-|            ]| &&
-|          \}| &&
-|        ]| &&
-|      \}| &&
-|    ]| &&
-|  \}| &&
-|]|.
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""" testing
+    DATA(lv_raw_response) = |[| &&
+    |  \{| &&
+    |    "messageid": "CMR-20260314-001",| &&
+    |    "attachments": [| &&
+    |      \{| &&
+    |        "cmrheaders": [| &&
+    |          \{| &&
+    |            "cmrid": "",| &&
+    |            "senderinfo": "Sender LTD",| &&
+    |            "consigneeinfo": "Biedronka LTD",| &&
+    |            "deliveryplace": "Wrocław",| &&
+    |            "takingoverplace": "Warsaw",| &&
+    |            "takingoverdate": "14/03/2026",| &&
+    |            "carrierinfo": "DPD Polska",| &&
+    |            "successivecarrier": "Biedronka Express",| &&
+    |            "carrierreservice": null,| &&
+    |            "senderinstruction": "spread into markets ASAP",| &&
+    |            "cashondelivery": 1344,| &&
+    |            "currency": "USD",| &&
+    |            "establishedplace": "Wrocław, Biskupin",| &&
+    |            "establisheddate": "31/03/2026",| &&
+    |            "createdby": null,| &&
+    |            "createdat": null,| &&
+    |            "lastchangedby": null,| &&
+    |            "lastchangedat": null,| &&
+    |            "cmritems": [| &&
+    |              \{| &&
+    |                "itemposition": "prod1",| &&
+    |                "marksnumbers": "prod1",| &&
+    |                "packagecount": 14,| &&
+    |                "packingmethod": "box",| &&
+    |                "natureofgoods": "pencils",| &&
+    |                "statisticalnumber": "st-14nr",| &&
+    |                "weightunitfield": "KG",| &&
+    |                "volumeunitfield": "M3",| &&
+    |                "grossweight": 16,| &&
+    |                "volume": 1,| &&
+    |                "unitednationnumber": null,| &&
+    |                "hazardclass": "FLAM",| &&  " QQQ FLAMABLE trigger on hazard class"
+    |                "packinggroup": null| &&
+    |              \},| &&
+    |              \{| &&
+    |                "itemposition": "prod2",| &&
+    |                "marksnumbers": "prod2",| &&
+    |                "packagecount": 8,| &&
+    |                "packingmethod": "pallet",| &&
+    |                "natureofgoods": "EXPLOS bananas",| && "QQQ EPLOSIVE trigger on nature of goods"
+    |                "statisticalnumber": "st-888nr",| &&
+    |                "weightunitfield": "KG",| &&
+    |                "volumeunitfield": "M3",| &&
+    |                "grossweight": 55,| &&
+    |                "volume": 5,| &&
+    |                "unitednationnumber": null,| &&
+    |                "hazardclass": null,| &&
+    |                "packinggroup": null| &&
+    |              \}| &&
+    |            ]| &&
+    |          \}| &&
+    |        ]| &&
+    |      \}| &&
+    |    ]| &&
+    |  \}| &&
+    |]|.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""" testing
     REPLACE FIRST OCCURRENCE OF '```json' IN lv_raw_response WITH ''.
     REPLACE ALL OCCURRENCES OF '```' IN lv_raw_response WITH ''.
 
@@ -680,69 +680,39 @@ ENDCLASS.
 
 CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
   METHOD execute_code_int.
-    TYPES: BEGIN OF ts_item,
-             cmruuid            TYPE zpru_cmr_item-cmruuid,
-             cmritemuuid        TYPE zpru_cmr_item-cmritemuuid,
-             cmrid              TYPE zpru_cmr_item-cmrid,
-             itemposition       TYPE zpru_cmr_item-itemposition,
-             natureofgoods      TYPE zpru_cmr_item-natureofgoods,
-             unitednationnumber TYPE zpru_cmr_item-unitednationnumber,
-             hazardclass        TYPE zpru_cmr_item-hazardclass,
-             packinggroup       TYPE zpru_cmr_item-packinggroup,
-           END OF ts_item,
-           tt_items TYPE STANDARD TABLE OF ts_item WITH EMPTY KEY.
 
-    TYPES: BEGIN OF ts_alert_out,
-             alertuuid     TYPE zpru_cmr_alert-alertuuid,
-             cmruuid       TYPE zpru_cmr_alert-cmruuid,
-             cmrid         TYPE zpru_cmr_alert-cmrid,
-             cmritemuuid   TYPE zpru_cmr_alert-cmritemuuid,
-             itemposition  TYPE zpru_cmr_alert-itemposition,
-             natureofgoods TYPE zpru_cmr_alert-natureofgoods,
-             alerttype     TYPE zpru_cmr_alert-alerttype,
-             alertmessage  TYPE zpru_cmr_alert-alertmessage,
-           END OF ts_alert_out,
-           tt_alerts_out TYPE STANDARD TABLE OF ts_alert_out WITH EMPTY KEY.
+    DATA lv_nature_up         TYPE string.
+    DATA lv_is_danger         TYPE abap_bool.
+    DATA lv_reason            TYPE string.
+    DATA lt_alert_rap         TYPE TABLE FOR CREATE zr_pru_cmr_alert\\zrprucmralert.
+    DATA lt_cmr_item_context  TYPE STANDARD TABLE OF zpru_cmr_item WITH EMPTY KEY.
+    DATA lt_cmr_alert_context TYPE STANDARD TABLE OF zpru_cmr_alert WITH EMPTY KEY.
 
-    DATA lt_items      TYPE tt_items.
-    DATA lt_alerts_db  TYPE STANDARD TABLE OF zpru_cmr_alert WITH EMPTY KEY.
-    DATA lt_alerts_out TYPE tt_alerts_out.
-    DATA lv_items_json TYPE string.
-    DATA lv_nature_up  TYPE string.
-    DATA lv_is_danger  TYPE abap_bool.
-    DATA lv_reason     TYPE string.
-    DATA ls_alert_db   TYPE zpru_cmr_alert.
-    DATA ls_alert_out  TYPE ts_alert_out.
+    FIELD-SYMBOLS <ls_input> TYPE zpru_s_cmr_classify_req.
 
-    " --- Read CMRITEMS from controller data board (written by CREATE_CMR) ---
-    SORT io_controller->mt_input_output BY number ASCENDING.
-    LOOP AT io_controller->mt_input_output ASSIGNING FIELD-SYMBOL(<ls_io>).
-      READ TABLE <ls_io>-key_value_pairs WITH KEY name = 'CMRITEMS'
-           ASSIGNING FIELD-SYMBOL(<ls_kvp>).
-      IF sy-subrc = 0.
-        lv_items_json = <ls_kvp>-value.
-      ENDIF.
-    ENDLOOP.
-
-    IF lv_items_json IS INITIAL.
-      ev_error_flag = abap_true.
-      RETURN.
+    ASSIGN is_input->* TO <ls_input>.
+    IF sy-subrc <> 0.
+      RAISE EXCEPTION NEW zpru_cx_agent_core( ).
     ENDIF.
 
-    /ui2/cl_json=>deserialize( EXPORTING json          = lv_items_json
-                                          hex_as_base64 = abap_false
-                               CHANGING  data          = lt_items ).
+    /ui2/cl_json=>deserialize( EXPORTING json          = <ls_input>-cmritems
+                                         hex_as_base64 = abap_false
+                               CHANGING  data          = lt_cmr_item_context ).
 
-    IF lt_items IS INITIAL.
+    IF lt_cmr_item_context IS INITIAL.
       APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv_empty>).
       <ls_kv_empty>-name  = 'CMRALERTS'.
-      <ls_kv_empty>-value = '[]'.
+      <ls_kv_empty>-value = ``.
       RETURN.
     ENDIF.
 
     " --- Classify each item ---
-    LOOP AT lt_items ASSIGNING FIELD-SYMBOL(<ls_item>).
-      CLEAR: lv_is_danger, lv_reason.
+    DATA(lv_count) = 0.
+    LOOP AT lt_cmr_item_context ASSIGNING FIELD-SYMBOL(<ls_item>).
+      CLEAR: lv_is_danger,
+             lv_reason.
+
+      lv_count += 1.
 
       " Trigger A: structured hazard fields already populated
       IF <ls_item>-hazardclass IS NOT INITIAL.
@@ -762,6 +732,7 @@ CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
           lv_is_danger = abap_true.
           lv_reason = 'Explosive material detected in nature of goods'.
         ENDIF.
+
         IF lv_is_danger = abap_false AND (    lv_nature_up CS 'FLAMMABLE GAS'
                                            OR lv_nature_up CS 'INFLAMMABLE GAS'
                                            OR lv_nature_up CS 'LPG'
@@ -774,6 +745,7 @@ CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
           lv_is_danger = abap_true.
           lv_reason = 'Flammable gas detected in nature of goods'.
         ENDIF.
+
         IF lv_is_danger = abap_false AND (    lv_nature_up CS 'FLAMMABLE LIQUID'
                                            OR lv_nature_up CS 'INFLAMMABLE LIQUID'
                                            OR lv_nature_up CS 'PETROL'
@@ -789,6 +761,7 @@ CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
           lv_is_danger = abap_true.
           lv_reason = 'Flammable liquid detected in nature of goods'.
         ENDIF.
+
         IF lv_is_danger = abap_false AND (    lv_nature_up CS 'FLAMMABLE SOLID'
                                            OR lv_nature_up CS 'INFLAMMABLE SOLID'
                                            OR lv_nature_up CS 'PHOSPHORUS'
@@ -800,6 +773,7 @@ CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
           lv_is_danger = abap_true.
           lv_reason = 'Flammable solid detected in nature of goods'.
         ENDIF.
+
         IF lv_is_danger = abap_false AND (    lv_nature_up CS 'OXIDIS'
                                            OR lv_nature_up CS 'OXIDIZ'
                                            OR lv_nature_up CS 'PEROXIDE'
@@ -810,6 +784,7 @@ CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
           lv_is_danger = abap_true.
           lv_reason = 'Oxidiser/organic peroxide detected in nature of goods'.
         ENDIF.
+
         IF lv_is_danger = abap_false AND (    lv_nature_up CS 'TOXIC'
                                            OR lv_nature_up CS 'POISON'
                                            OR lv_nature_up CS 'PESTICIDE'
@@ -824,6 +799,7 @@ CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
           lv_is_danger = abap_true.
           lv_reason = 'Toxic substance detected in nature of goods'.
         ENDIF.
+
         IF lv_is_danger = abap_false AND (    lv_nature_up CS 'INFECTIOUS'
                                            OR lv_nature_up CS 'PATHOGEN'
                                            OR lv_nature_up CS 'CLINICAL WASTE'
@@ -831,6 +807,7 @@ CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
           lv_is_danger = abap_true.
           lv_reason = 'Infectious substance detected in nature of goods'.
         ENDIF.
+
         IF lv_is_danger = abap_false AND (    lv_nature_up CS 'RADIOACT'
                                            OR lv_nature_up CS 'NUCLEAR'
                                            OR lv_nature_up CS 'URANIUM'
@@ -839,6 +816,7 @@ CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
           lv_is_danger = abap_true.
           lv_reason = 'Radioactive material detected in nature of goods'.
         ENDIF.
+
         IF lv_is_danger = abap_false AND (    lv_nature_up CS 'CORROSIVE'
                                            OR lv_nature_up CS 'ACID'
                                            OR lv_nature_up CS 'CAUSTIC'
@@ -851,6 +829,7 @@ CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
           lv_is_danger = abap_true.
           lv_reason = 'Corrosive substance detected in nature of goods'.
         ENDIF.
+
         IF lv_is_danger = abap_false AND (    lv_nature_up CS 'DANGEROUS GOODS'
                                            OR lv_nature_up CS 'HAZARDOUS'
                                            OR lv_nature_up CS 'LITHIUM BATTER'
@@ -862,48 +841,63 @@ CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
       ENDIF.
 
       IF lv_is_danger = abap_true.
-        CLEAR: ls_alert_db, ls_alert_out.
+        APPEND INITIAL LINE TO lt_alert_rap ASSIGNING FIELD-SYMBOL(<ls_alert_rap>).
+        TRY.
+            <ls_alert_rap>-alertuuid = cl_system_uuid=>create_uuid_x16_static( ).
+          CATCH cx_uuid_error.
+        ENDTRY.
 
-        ls_alert_db-alertuuid    = cl_system_uuid=>create_uuid_x16_static( ).
-        ls_alert_db-cmruuid      = <ls_item>-cmruuid.
-        ls_alert_db-cmrid        = <ls_item>-cmrid.
-        ls_alert_db-cmritemuuid  = <ls_item>-cmritemuuid.
-        ls_alert_db-itemposition = <ls_item>-itemposition.
-        ls_alert_db-natureofgoods = <ls_item>-natureofgoods.
-        ls_alert_db-alerttype    = 'DANGER_GOODS'.
-        ls_alert_db-alertmessage = lv_reason.
-        ls_alert_db-createdby    = sy-uname.
-        GET TIME STAMP FIELD ls_alert_db-createdat.
+        <ls_alert_rap>-%cid          = |ALERT{ lv_count }|.
+        <ls_alert_rap>-cmruuid       = <ls_item>-cmruuid.
+        <ls_alert_rap>-cmrid         = <ls_item>-cmrid.
+        <ls_alert_rap>-cmritemuuid   = <ls_item>-cmritemuuid.
+        <ls_alert_rap>-itemposition  = <ls_item>-itemposition.
+        <ls_alert_rap>-natureofgoods = <ls_item>-natureofgoods.
+        <ls_alert_rap>-alerttype     = 'DANGER_GOODS'.
+        <ls_alert_rap>-alertmessage  = lv_reason.
 
-        APPEND ls_alert_db TO lt_alerts_db.
+        <ls_alert_rap>-%control      = VALUE #( alertuuid     = if_abap_behv=>mk-on
+                                                cmruuid       = if_abap_behv=>mk-on
+                                                cmrid         = if_abap_behv=>mk-on
+                                                cmritemuuid   = if_abap_behv=>mk-on
+                                                itemposition  = if_abap_behv=>mk-on
+                                                natureofgoods = if_abap_behv=>mk-on
+                                                alerttype     = if_abap_behv=>mk-on
+                                                alertmessage  = if_abap_behv=>mk-on ).
 
-        ls_alert_out-alertuuid    = ls_alert_db-alertuuid.
-        ls_alert_out-cmruuid      = ls_alert_db-cmruuid.
-        ls_alert_out-cmrid        = ls_alert_db-cmrid.
-        ls_alert_out-cmritemuuid  = ls_alert_db-cmritemuuid.
-        ls_alert_out-itemposition = ls_alert_db-itemposition.
-        ls_alert_out-natureofgoods = ls_alert_db-natureofgoods.
-        ls_alert_out-alerttype    = ls_alert_db-alerttype.
-        ls_alert_out-alertmessage = ls_alert_db-alertmessage.
-        APPEND ls_alert_out TO lt_alerts_out.
       ENDIF.
     ENDLOOP.
 
     " --- Persist alerts ---
-    IF lt_alerts_db IS NOT INITIAL.
-*      INSERT zpru_cmr_alert FROM TABLE @lt_alerts_db ACCEPTING DUPLICATE KEYS.
-" qqq add rap EML statement
-      IF sy-subrc <> 0 AND sy-subrc <> 4.
-        ev_error_flag = abap_true.
-        RETURN.
-      ENDIF.
+    IF lt_alert_rap IS INITIAL.
+      RETURN.
     ENDIF.
+
+    MODIFY ENTITIES OF zr_pru_cmr_alert
+           ENTITY zrprucmralert
+           CREATE FROM lt_alert_rap
+           MAPPED DATA(ls_mapped_alert)
+           FAILED DATA(ls_failed_alert).
+
+    IF ls_failed_alert-zrprucmralert IS NOT INITIAL.
+      ev_error_flag = abap_true.
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF zr_pru_cmr_alert
+         ENTITY zrprucmralert
+         ALL FIELDS WITH CORRESPONDING #( ls_mapped_alert-zrprucmralert )
+         RESULT DATA(lt_alert_create).
+
+    lt_cmr_alert_context = CORRESPONDING #( lt_alert_create MAPPING FROM ENTITY ).
 
     " --- Emit output key-value pair ---
     APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv>).
     <ls_kv>-name  = 'CMRALERTS'.
-    <ls_kv>-value = /ui2/cl_json=>serialize( data     = lt_alerts_out
-                                              compress = abap_true ).
+    <ls_kv>-value = /ui2/cl_json=>serialize( data     = lt_cmr_alert_context
+                                             compress = abap_true ).
+
+
   ENDMETHOD.
 ENDCLASS.
 
