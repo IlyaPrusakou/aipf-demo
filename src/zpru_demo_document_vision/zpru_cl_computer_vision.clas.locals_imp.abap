@@ -388,17 +388,17 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
     APPEND INITIAL LINE TO et_execution_plan ASSIGNING FIELD-SYMBOL(<ls_execution_plan>).
     <ls_execution_plan>-agentuuid = is_agent-agentuuid.
     <ls_execution_plan>-sequence  = 1.
-    <ls_execution_plan>-toolname  = 'CREATE_CMR'.
+    <ls_execution_plan>-toolname  = zpru_if_computer_vision=>cs_tools-create_cmr.
 
     APPEND INITIAL LINE TO et_execution_plan ASSIGNING <ls_execution_plan>.
     <ls_execution_plan>-agentuuid = is_agent-agentuuid.
     <ls_execution_plan>-sequence  = 2.
-    <ls_execution_plan>-toolname  = 'CLASSIFY_DANGER_GOODS'.
+    <ls_execution_plan>-toolname  = zpru_if_computer_vision=>cs_tools-classify_danger_goods.
 
     APPEND INITIAL LINE TO et_execution_plan ASSIGNING <ls_execution_plan>.
     <ls_execution_plan>-agentuuid = is_agent-agentuuid.
     <ls_execution_plan>-sequence  = 3.
-    <ls_execution_plan>-toolname  = 'VALIDATE_CMR'.
+    <ls_execution_plan>-toolname  = zpru_if_computer_vision=>cs_tools-validate_cmr.
 
     ev_langu = sy-langu.
   ENDMETHOD.
@@ -895,7 +895,7 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
     DATA ls_finding_out  TYPE zpru_if_computer_vision=>tS_cmr_finding.
     DATA lv_cid_counter  TYPE i VALUE 1.
 
-    FIELD-SYMBOLS <ls_input> TYPE zpru_s_cmr_validate_req.
+    FIELD-SYMBOLS <ls_input> TYPE  zpru_if_computer_vision=>ts_cmr_validate_req.
 
     ASSIGN is_input->* TO <ls_input>.
     IF sy-subrc <> 0.

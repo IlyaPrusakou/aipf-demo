@@ -38,6 +38,12 @@ INTERFACE zpru_if_computer_vision
                END OF cmrfinding,
              END OF cs_context_field.
 
+  CONSTANTS: BEGIN OF cs_tools,
+               create_cmr            TYPE string VALUE `CREATE_CMR`,
+               classify_danger_goods TYPE string VALUE `CLASSIFY_DANGER_GOODS`,
+               validate_cmr          TYPE string VALUE `VALIDATE_CMR`,
+             END OF cs_tools.
+
   CONSTANTS: BEGIN OF cs_input_tool_structure,
                BEGIN OF create_cmr,
                  absolute_name TYPE string VALUE `\INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_CMR_CREATE_REQUEST`,
