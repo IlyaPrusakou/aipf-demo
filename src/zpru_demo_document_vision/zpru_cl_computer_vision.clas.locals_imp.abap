@@ -64,7 +64,7 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
     DATA ls_cmr_create_request TYPE zpru_if_computer_vision=>ts_cmr_create_request.
     DATA lt_header             TYPE STANDARD TABLE OF zpru_cmr_header WITH EMPTY KEY.
     DATA lt_items              TYPE STANDARD TABLE OF zpru_cmr_item WITH EMPTY KEY.
-    DATA lt_creation_content TYPE zpru_if_computer_vision=>tt_cmr_create_content.
+    DATA lt_creation_content   TYPE zpru_if_computer_vision=>tt_cmr_create_content.
 
     /ui2/cl_json=>deserialize( EXPORTING json = iv_thinking_output
                                CHANGING  data = lt_raw_response ).
@@ -93,8 +93,8 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
               ENDLOOP.
             ENDLOOP.
           ENDLOOP.
-          <ls_cmrcreationrequest>-cmrheaders = lt_header .
-          <ls_cmrcreationrequest>-cmritems   = lt_items .
+          <ls_cmrcreationrequest>-cmrheaders = lt_header.
+          <ls_cmrcreationrequest>-cmritems   = lt_items.
 
         ENDLOOP.
 
@@ -156,7 +156,7 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
     DATA lo_http_client      TYPE REF TO if_web_http_client.
     DATA ls_abap_payload     TYPE REF TO ts_gemini_request.
     DATA lv_string_payload   TYPE string.
-    DATA ls_llm_output       TYPE ts_gemini_response.
+*    DATA ls_llm_output       TYPE ts_gemini_response.
     DATA lr_payload          TYPE REF TO data.
 
     FIELD-SYMBOLS <ls_payload> TYPE zbp_r_pru_message=>ts_doc_recognition.
@@ -187,7 +187,7 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
     /ui2/cl_json=>deserialize( EXPORTING json = is_input_prompt-string_content
                                CHANGING  data = <ls_payload> ).
 
-    CREATE DATA  ls_abap_payload.
+    CREATE DATA ls_abap_payload.
 
     ASSIGN ls_abap_payload->* TO FIELD-SYMBOL(<ls_abap_payload>).
     IF sy-subrc <> 0.
@@ -283,9 +283,9 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
       ENDLOOP.
     ENDLOOP.
 
-    lv_string_payload = /ui2/cl_json=>serialize( data     = ls_abap_payload
+    lv_string_payload = /ui2/cl_json=>serialize( data        = ls_abap_payload
                                                  pretty_name = /ui2/cl_json=>pretty_mode-low_case
-                                                 compress = abap_true ).
+                                                 compress    = abap_true ).
 
     IF lv_string_payload IS INITIAL.
       RETURN.
@@ -358,7 +358,7 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
     |                "marksnumbers": "prod2",| &&
     |                "packagecount": 8,| &&
     |                "packingmethod": "pallet",| &&
-    |                "natureofgoods": "EXPLOS bananas",| && "QQQ EPLOSIVE trigger on nature of goods"
+    |                "natureofgoods": "EXPLOS bananas",| && " QQQ EPLOSIVE trigger on nature of goods"
     |                "statisticalnumber": "st-888nr",| &&
     |                "weightunitfield": "KG",| &&
     |                "volumeunitfield": "M3",| &&
@@ -386,9 +386,9 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
     ev_thinking_output = lv_raw_response.
 
     APPEND INITIAL LINE TO et_execution_plan ASSIGNING FIELD-SYMBOL(<ls_execution_plan>).
-    <ls_execution_plan>-agentuuid =   is_agent-agentuuid.
-    <ls_execution_plan>-sequence = 1.
-    <ls_execution_plan>-toolname = 'CREATE_CMR'.
+    <ls_execution_plan>-agentuuid = is_agent-agentuuid.
+    <ls_execution_plan>-sequence  = 1.
+    <ls_execution_plan>-toolname  = 'CREATE_CMR'.
 
     APPEND INITIAL LINE TO et_execution_plan ASSIGNING <ls_execution_plan>.
     <ls_execution_plan>-agentuuid = is_agent-agentuuid.
@@ -401,7 +401,6 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
     <ls_execution_plan>-toolname  = 'VALIDATE_CMR'.
 
     ev_langu = sy-langu.
-
   ENDMETHOD.
 
   METHOD read_data_4_thinking.
@@ -559,15 +558,13 @@ ENDCLASS.
 
 CLASS lcl_adf_create_cmr IMPLEMENTATION.
   METHOD execute_code_int.
-    DATA lt_headers            TYPE zpru_if_computer_vision=>tt_cmr_header_context.
-    DATA lt_items              TYPE zpru_if_computer_vision=>tt_cmr_item_context.
     DATA lt_headers_all        TYPE zpru_if_computer_vision=>tt_cmr_header_context.
     DATA lt_items_all          TYPE zpru_if_computer_vision=>tt_cmr_item_context.
     DATA lt_cmr_create_head    TYPE TABLE FOR CREATE zr_pru_cmr_header\\zrprucmrheader.
     DATA lt_cmr_create_item    TYPE TABLE FOR CREATE zr_pru_cmr_header\\zrprucmrheader\_cmritems.
     DATA lt_cmr_header_context TYPE zpru_if_computer_vision=>tt_cmr_header_context.
     DATA lt_cmr_item_context   TYPE zpru_if_computer_vision=>tt_cmr_item_context.
-    DATA lt_creation_content TYPE zpru_if_computer_vision=>tt_cmr_create_content.
+    DATA lt_creation_content   TYPE zpru_if_computer_vision=>tt_cmr_create_content.
 
     FIELD-SYMBOLS <ls_cmr_create> TYPE zpru_if_computer_vision=>ts_cmr_create_request.
 
@@ -583,8 +580,7 @@ CLASS lcl_adf_create_cmr IMPLEMENTATION.
       lt_items_all = CORRESPONDING #( BASE ( lt_items_all ) <ls_cmrcreationcontent>-cmritems ).
     ENDLOOP.
 
-    SELECT MAX( cmrid )
-      FROM zr_pru_cmr_header
+    SELECT MAX( cmrid ) FROM zr_pru_cmr_header
       INTO @DATA(lv_max_cmrid).
 
     DATA(lv_next_cmrid_num) = CONV i( lv_max_cmrid ) + 1.
@@ -672,7 +668,6 @@ ENDCLASS.
 
 CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
   METHOD execute_code_int.
-
     DATA lv_nature_up         TYPE string.
     DATA lv_is_danger         TYPE abap_bool.
     DATA lv_reason            TYPE string.
@@ -680,7 +675,7 @@ CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
     DATA lt_cmr_item_context  TYPE zpru_if_computer_vision=>tt_cmr_item_context.
     DATA lt_cmr_alert_context TYPE STANDARD TABLE OF zpru_cmr_alert WITH EMPTY KEY.
 
-    FIELD-SYMBOLS <ls_input> TYPE  zpru_if_computer_vision=>ts_cmr_classify_req.
+    FIELD-SYMBOLS <ls_input> TYPE zpru_if_computer_vision=>ts_cmr_classify_req.
 
     ASSIGN is_input->* TO <ls_input>.
     IF sy-subrc <> 0.
@@ -885,88 +880,22 @@ CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
     <ls_kv>-name  = 'CMRALERTS'.
     <ls_kv>-value = /ui2/cl_json=>serialize( data     = lt_cmr_alert_context
                                              compress = abap_true ).
-
-
   ENDMETHOD.
 ENDCLASS.
 
 
 CLASS lcl_adf_validate_cmr IMPLEMENTATION.
   METHOD execute_code_int.
-    TYPES: BEGIN OF ts_header,
-             cmruuid         TYPE zpru_cmr_header-cmruuid,
-             cmrid           TYPE zpru_cmr_header-cmrid,
-             senderinfo      TYPE zpru_cmr_header-senderinfo,
-             consigneeinfo   TYPE zpru_cmr_header-consigneeinfo,
-             deliveryplace   TYPE zpru_cmr_header-deliveryplace,
-             takingoverplace TYPE zpru_cmr_header-takingoverplace,
-             takingoverdate  TYPE zpru_cmr_header-takingoverdate,
-             carrierinfo     TYPE zpru_cmr_header-carrierinfo,
-             cashondelivery  TYPE zpru_cmr_header-cashondelivery,
-             currency        TYPE zpru_cmr_header-currency,
-           END OF ts_header,
-           tt_headers TYPE STANDARD TABLE OF ts_header WITH EMPTY KEY.
-
-    TYPES: BEGIN OF ts_item,
-             cmruuid            TYPE zpru_cmr_item-cmruuid,
-             cmritemuuid        TYPE zpru_cmr_item-cmritemuuid,
-             cmrid              TYPE zpru_cmr_item-cmrid,
-             itemposition       TYPE zpru_cmr_item-itemposition,
-             natureofgoods      TYPE zpru_cmr_item-natureofgoods,
-             grossweight        TYPE zpru_cmr_item-grossweight,
-             weightunitfield    TYPE zpru_cmr_item-weightunitfield,
-             unitednationnumber TYPE zpru_cmr_item-unitednationnumber,
-             hazardclass        TYPE zpru_cmr_item-hazardclass,
-             packinggroup       TYPE zpru_cmr_item-packinggroup,
-           END OF ts_item,
-           tt_items TYPE STANDARD TABLE OF ts_item WITH EMPTY KEY.
-
-    TYPES: BEGIN OF ts_alert,
-             alertuuid   TYPE zpru_cmr_alert-alertuuid,
-             cmruuid     TYPE zpru_cmr_alert-cmruuid,
-             cmritemuuid TYPE zpru_cmr_alert-cmritemuuid,
-           END OF ts_alert,
-           tt_alerts TYPE STANDARD TABLE OF ts_alert WITH EMPTY KEY.
-
-    TYPES: BEGIN OF ts_finding_out,
-             findinguuid   TYPE zpru_cmr_valid-findinguuid,
-             cmruuid       TYPE zpru_cmr_valid-cmruuid,
-             cmrid         TYPE zpru_cmr_valid-cmrid,
-             cmritemuuid   TYPE zpru_cmr_valid-cmritemuuid,
-             itemposition  TYPE zpru_cmr_valid-itemposition,
-             findingstatus TYPE zpru_cmr_valid-findingstatus,
-             findingtype   TYPE zpru_cmr_valid-findingtype,
-             fieldname     TYPE zpru_cmr_valid-fieldname,
-             findingmsg    TYPE zpru_cmr_valid-findingmsg,
-           END OF ts_finding_out,
-           tt_findings_out TYPE STANDARD TABLE OF ts_finding_out WITH EMPTY KEY.
-
-    TYPES: BEGIN OF ts_cmr_status,
-             cmruuid       TYPE zpru_cmr_header-cmruuid,
-             cmrid         TYPE zpru_cmr_header-cmrid,
-             overallstatus TYPE char10,
-           END OF ts_cmr_status,
-           tt_cmr_status TYPE STANDARD TABLE OF ts_cmr_status WITH EMPTY KEY.
-
-    TYPES: BEGIN OF ts_validation_output,
-             cmrstatus TYPE tt_cmr_status,
-             findings  TYPE tt_findings_out,
-           END OF ts_validation_output.
-
-    DATA lt_headers      TYPE tt_headers.
-    DATA lt_items        TYPE tt_items.
-    DATA lt_alerts       TYPE tt_alerts.
+    DATA lt_headers      TYPE zpru_if_computer_vision=>tt_cmr_header_context.
+    DATA lt_items        TYPE zpru_if_computer_vision=>tt_cmr_item_context.
+    DATA lt_alerts       TYPE zpru_if_computer_vision=>tt_cmr_alert_context.
     DATA lt_findings_rap TYPE TABLE FOR CREATE zr_pru_cmr_valid\\zrprucmrvalid.
-    DATA lt_findings_out TYPE tt_findings_out.
-    DATA lt_cmr_status   TYPE tt_cmr_status.
-    DATA ls_output       TYPE ts_validation_output.
-    DATA lv_headers_json TYPE string.
-    DATA lv_items_json   TYPE string.
-    DATA lv_alerts_json  TYPE string.
-    DATA ls_finding_out  TYPE ts_finding_out.
+    DATA lt_findings_out TYPE zpru_if_computer_vision=>tt_cmr_finding.
+    DATA lt_cmr_status   TYPE zpru_if_computer_vision=>tt_cmr_overall_status.
+    DATA ls_finding_out  TYPE zpru_if_computer_vision=>tS_cmr_finding.
     DATA lv_cid_counter  TYPE i VALUE 1.
 
-    FIELD-SYMBOLS: <ls_input> TYPE zpru_s_cmr_validate_req.
+    FIELD-SYMBOLS <ls_input> TYPE zpru_s_cmr_validate_req.
 
     ASSIGN is_input->* TO <ls_input>.
     IF sy-subrc <> 0.
@@ -974,10 +903,10 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
     ENDIF.
 
     /ui2/cl_json=>deserialize( EXPORTING json          = <ls_input>-cmrheaders
-                                          hex_as_base64 = abap_false
+                                         hex_as_base64 = abap_false
                                CHANGING  data          = lt_headers ).
     /ui2/cl_json=>deserialize( EXPORTING json          = <ls_input>-cmritems
-                                          hex_as_base64 = abap_false
+                                         hex_as_base64 = abap_false
                                CHANGING  data          = lt_items ).
 
     " --- Validate each CMR header ---
@@ -988,8 +917,8 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
         APPEND INITIAL LINE TO lt_findings_rap ASSIGNING FIELD-SYMBOL(<ls_finding_rap>).
 
         TRY.
-            <ls_finding_rap>-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
-          CATCH   cx_uuid_error.
+            <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
+          CATCH cx_uuid_error.
         ENDTRY.
 
         <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
@@ -1000,16 +929,16 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
         <ls_finding_rap>-findingmsg    = 'Sender information is missing'.
         <ls_finding_rap>-createdby     = sy-uname.
         GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-        <ls_finding_rap>-%cid          = |FIND{ lv_cid_counter }|.
-        <ls_finding_rap>-%control      = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                                  cmruuid       = if_abap_behv=>mk-on
-                                                  cmrid         = if_abap_behv=>mk-on
-                                                  findingstatus = if_abap_behv=>mk-on
-                                                  findingtype   = if_abap_behv=>mk-on
-                                                  fieldname     = if_abap_behv=>mk-on
-                                                  findingmsg    = if_abap_behv=>mk-on
-                                                  createdby     = if_abap_behv=>mk-on
-                                                  createdat     = if_abap_behv=>mk-on ).
+        <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
+        <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                             cmruuid       = if_abap_behv=>mk-on
+                                             cmrid         = if_abap_behv=>mk-on
+                                             findingstatus = if_abap_behv=>mk-on
+                                             findingtype   = if_abap_behv=>mk-on
+                                             fieldname     = if_abap_behv=>mk-on
+                                             findingmsg    = if_abap_behv=>mk-on
+                                             createdby     = if_abap_behv=>mk-on
+                                             createdat     = if_abap_behv=>mk-on ).
         lv_cid_counter += 1.
         MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
         APPEND ls_finding_out TO lt_findings_out.
@@ -1019,8 +948,8 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
         CLEAR ls_finding_out.
         APPEND INITIAL LINE TO lt_findings_rap ASSIGNING <ls_finding_rap>.
         TRY.
-            <ls_finding_rap>-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
-          CATCH   cx_uuid_error.
+            <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
+          CATCH cx_uuid_error.
         ENDTRY.
         <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
         <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
@@ -1030,16 +959,16 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
         <ls_finding_rap>-findingmsg    = 'Consignee information is missing'.
         <ls_finding_rap>-createdby     = sy-uname.
         GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-        <ls_finding_rap>-%cid          = |FIND{ lv_cid_counter }|.
-        <ls_finding_rap>-%control      = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                                  cmruuid       = if_abap_behv=>mk-on
-                                                  cmrid         = if_abap_behv=>mk-on
-                                                  findingstatus = if_abap_behv=>mk-on
-                                                  findingtype   = if_abap_behv=>mk-on
-                                                  fieldname     = if_abap_behv=>mk-on
-                                                  findingmsg    = if_abap_behv=>mk-on
-                                                  createdby     = if_abap_behv=>mk-on
-                                                  createdat     = if_abap_behv=>mk-on ).
+        <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
+        <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                             cmruuid       = if_abap_behv=>mk-on
+                                             cmrid         = if_abap_behv=>mk-on
+                                             findingstatus = if_abap_behv=>mk-on
+                                             findingtype   = if_abap_behv=>mk-on
+                                             fieldname     = if_abap_behv=>mk-on
+                                             findingmsg    = if_abap_behv=>mk-on
+                                             createdby     = if_abap_behv=>mk-on
+                                             createdat     = if_abap_behv=>mk-on ).
         lv_cid_counter += 1.
         MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
         APPEND ls_finding_out TO lt_findings_out.
@@ -1049,8 +978,8 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
         CLEAR ls_finding_out.
         APPEND INITIAL LINE TO lt_findings_rap ASSIGNING <ls_finding_rap>.
         TRY.
-            <ls_finding_rap>-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
-          CATCH   cx_uuid_error.
+            <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
+          CATCH cx_uuid_error.
         ENDTRY.
         <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
         <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
@@ -1060,16 +989,16 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
         <ls_finding_rap>-findingmsg    = 'Carrier information is missing'.
         <ls_finding_rap>-createdby     = sy-uname.
         GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-        <ls_finding_rap>-%cid          = |FIND{ lv_cid_counter }|.
-        <ls_finding_rap>-%control      = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                                  cmruuid       = if_abap_behv=>mk-on
-                                                  cmrid         = if_abap_behv=>mk-on
-                                                  findingstatus = if_abap_behv=>mk-on
-                                                  findingtype   = if_abap_behv=>mk-on
-                                                  fieldname     = if_abap_behv=>mk-on
-                                                  findingmsg    = if_abap_behv=>mk-on
-                                                  createdby     = if_abap_behv=>mk-on
-                                                  createdat     = if_abap_behv=>mk-on ).
+        <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
+        <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                             cmruuid       = if_abap_behv=>mk-on
+                                             cmrid         = if_abap_behv=>mk-on
+                                             findingstatus = if_abap_behv=>mk-on
+                                             findingtype   = if_abap_behv=>mk-on
+                                             fieldname     = if_abap_behv=>mk-on
+                                             findingmsg    = if_abap_behv=>mk-on
+                                             createdby     = if_abap_behv=>mk-on
+                                             createdat     = if_abap_behv=>mk-on ).
         lv_cid_counter += 1.
         MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
         APPEND ls_finding_out TO lt_findings_out.
@@ -1079,8 +1008,8 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
         CLEAR ls_finding_out.
         APPEND INITIAL LINE TO lt_findings_rap ASSIGNING <ls_finding_rap>.
         TRY.
-            <ls_finding_rap>-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
-          CATCH   cx_uuid_error.
+            <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
+          CATCH cx_uuid_error.
         ENDTRY.
         <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
         <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
@@ -1090,16 +1019,16 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
         <ls_finding_rap>-findingmsg    = 'Taking-over place is missing'.
         <ls_finding_rap>-createdby     = sy-uname.
         GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-        <ls_finding_rap>-%cid          = |FIND{ lv_cid_counter }|.
-        <ls_finding_rap>-%control      = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                                  cmruuid       = if_abap_behv=>mk-on
-                                                  cmrid         = if_abap_behv=>mk-on
-                                                  findingstatus = if_abap_behv=>mk-on
-                                                  findingtype   = if_abap_behv=>mk-on
-                                                  fieldname     = if_abap_behv=>mk-on
-                                                  findingmsg    = if_abap_behv=>mk-on
-                                                  createdby     = if_abap_behv=>mk-on
-                                                  createdat     = if_abap_behv=>mk-on ).
+        <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
+        <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                             cmruuid       = if_abap_behv=>mk-on
+                                             cmrid         = if_abap_behv=>mk-on
+                                             findingstatus = if_abap_behv=>mk-on
+                                             findingtype   = if_abap_behv=>mk-on
+                                             fieldname     = if_abap_behv=>mk-on
+                                             findingmsg    = if_abap_behv=>mk-on
+                                             createdby     = if_abap_behv=>mk-on
+                                             createdat     = if_abap_behv=>mk-on ).
         lv_cid_counter += 1.
         MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
         APPEND ls_finding_out TO lt_findings_out.
@@ -1109,8 +1038,8 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
         CLEAR ls_finding_out.
         APPEND INITIAL LINE TO lt_findings_rap ASSIGNING <ls_finding_rap>.
         TRY.
-            <ls_finding_rap>-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
-          CATCH   cx_uuid_error.
+            <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
+          CATCH cx_uuid_error.
         ENDTRY.
         <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
         <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
@@ -1120,16 +1049,16 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
         <ls_finding_rap>-findingmsg    = 'Delivery place is missing'.
         <ls_finding_rap>-createdby     = sy-uname.
         GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-        <ls_finding_rap>-%cid          = |FIND{ lv_cid_counter }|.
-        <ls_finding_rap>-%control      = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                                  cmruuid       = if_abap_behv=>mk-on
-                                                  cmrid         = if_abap_behv=>mk-on
-                                                  findingstatus = if_abap_behv=>mk-on
-                                                  findingtype   = if_abap_behv=>mk-on
-                                                  fieldname     = if_abap_behv=>mk-on
-                                                  findingmsg    = if_abap_behv=>mk-on
-                                                  createdby     = if_abap_behv=>mk-on
-                                                  createdat     = if_abap_behv=>mk-on ).
+        <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
+        <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                             cmruuid       = if_abap_behv=>mk-on
+                                             cmrid         = if_abap_behv=>mk-on
+                                             findingstatus = if_abap_behv=>mk-on
+                                             findingtype   = if_abap_behv=>mk-on
+                                             fieldname     = if_abap_behv=>mk-on
+                                             findingmsg    = if_abap_behv=>mk-on
+                                             createdby     = if_abap_behv=>mk-on
+                                             createdat     = if_abap_behv=>mk-on ).
         lv_cid_counter += 1.
         MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
         APPEND ls_finding_out TO lt_findings_out.
@@ -1139,8 +1068,8 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
         CLEAR ls_finding_out.
         APPEND INITIAL LINE TO lt_findings_rap ASSIGNING <ls_finding_rap>.
         TRY.
-            <ls_finding_rap>-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
-          CATCH   cx_uuid_error.
+            <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
+          CATCH cx_uuid_error.
         ENDTRY.
         <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
         <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
@@ -1150,16 +1079,16 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
         <ls_finding_rap>-findingmsg    = 'Taking-over date is missing'.
         <ls_finding_rap>-createdby     = sy-uname.
         GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-        <ls_finding_rap>-%cid          = |FIND{ lv_cid_counter }|.
-        <ls_finding_rap>-%control      = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                                  cmruuid       = if_abap_behv=>mk-on
-                                                  cmrid         = if_abap_behv=>mk-on
-                                                  findingstatus = if_abap_behv=>mk-on
-                                                  findingtype   = if_abap_behv=>mk-on
-                                                  fieldname     = if_abap_behv=>mk-on
-                                                  findingmsg    = if_abap_behv=>mk-on
-                                                  createdby     = if_abap_behv=>mk-on
-                                                  createdat     = if_abap_behv=>mk-on ).
+        <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
+        <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                             cmruuid       = if_abap_behv=>mk-on
+                                             cmrid         = if_abap_behv=>mk-on
+                                             findingstatus = if_abap_behv=>mk-on
+                                             findingtype   = if_abap_behv=>mk-on
+                                             fieldname     = if_abap_behv=>mk-on
+                                             findingmsg    = if_abap_behv=>mk-on
+                                             createdby     = if_abap_behv=>mk-on
+                                             createdat     = if_abap_behv=>mk-on ).
         lv_cid_counter += 1.
         MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
         APPEND ls_finding_out TO lt_findings_out.
@@ -1169,8 +1098,8 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
         CLEAR ls_finding_out.
         APPEND INITIAL LINE TO lt_findings_rap ASSIGNING <ls_finding_rap>.
         TRY.
-            <ls_finding_rap>-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
-          CATCH   cx_uuid_error.
+            <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
+          CATCH cx_uuid_error.
         ENDTRY.
         <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
         <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
@@ -1180,16 +1109,16 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
         <ls_finding_rap>-findingmsg    = 'Currency required when cash on delivery is set'.
         <ls_finding_rap>-createdby     = sy-uname.
         GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-        <ls_finding_rap>-%cid          = |FIND{ lv_cid_counter }|.
-        <ls_finding_rap>-%control      = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                                  cmruuid       = if_abap_behv=>mk-on
-                                                  cmrid         = if_abap_behv=>mk-on
-                                                  findingstatus = if_abap_behv=>mk-on
-                                                  findingtype   = if_abap_behv=>mk-on
-                                                  fieldname     = if_abap_behv=>mk-on
-                                                  findingmsg    = if_abap_behv=>mk-on
-                                                  createdby     = if_abap_behv=>mk-on
-                                                  createdat     = if_abap_behv=>mk-on ).
+        <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
+        <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                             cmruuid       = if_abap_behv=>mk-on
+                                             cmrid         = if_abap_behv=>mk-on
+                                             findingstatus = if_abap_behv=>mk-on
+                                             findingtype   = if_abap_behv=>mk-on
+                                             fieldname     = if_abap_behv=>mk-on
+                                             findingmsg    = if_abap_behv=>mk-on
+                                             createdby     = if_abap_behv=>mk-on
+                                             createdat     = if_abap_behv=>mk-on ).
         lv_cid_counter += 1.
         MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
         APPEND ls_finding_out TO lt_findings_out.
@@ -1204,8 +1133,8 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
         CLEAR ls_finding_out.
         APPEND INITIAL LINE TO lt_findings_rap ASSIGNING <ls_finding_rap>.
         TRY.
-            <ls_finding_rap>-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
-          CATCH   cx_uuid_error.
+            <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
+          CATCH cx_uuid_error.
         ENDTRY.
         <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
         <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
@@ -1215,16 +1144,16 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
         <ls_finding_rap>-findingmsg    = 'No items found for CMR'.
         <ls_finding_rap>-createdby     = sy-uname.
         GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-        <ls_finding_rap>-%cid          = |FIND{ lv_cid_counter }|.
-        <ls_finding_rap>-%control      = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                                  cmruuid       = if_abap_behv=>mk-on
-                                                  cmrid         = if_abap_behv=>mk-on
-                                                  findingstatus = if_abap_behv=>mk-on
-                                                  findingtype   = if_abap_behv=>mk-on
-                                                  fieldname     = if_abap_behv=>mk-on
-                                                  findingmsg    = if_abap_behv=>mk-on
-                                                  createdby     = if_abap_behv=>mk-on
-                                                  createdat     = if_abap_behv=>mk-on ).
+        <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
+        <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                             cmruuid       = if_abap_behv=>mk-on
+                                             cmrid         = if_abap_behv=>mk-on
+                                             findingstatus = if_abap_behv=>mk-on
+                                             findingtype   = if_abap_behv=>mk-on
+                                             fieldname     = if_abap_behv=>mk-on
+                                             findingmsg    = if_abap_behv=>mk-on
+                                             createdby     = if_abap_behv=>mk-on
+                                             createdat     = if_abap_behv=>mk-on ).
         lv_cid_counter += 1.
         MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
         APPEND ls_finding_out TO lt_findings_out.
@@ -1238,8 +1167,8 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
           CLEAR ls_finding_out.
           APPEND INITIAL LINE TO lt_findings_rap ASSIGNING <ls_finding_rap>.
           TRY.
-              <ls_finding_rap>-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
-            CATCH   cx_uuid_error.
+              <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
+            CATCH cx_uuid_error.
           ENDTRY.
           <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
           <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
@@ -1251,18 +1180,18 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
           <ls_finding_rap>-findingmsg    = |Nature of goods is missing for item { <ls_item>-itemposition }|.
           <ls_finding_rap>-createdby     = sy-uname.
           GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-          <ls_finding_rap>-%cid          = |FIND{ lv_cid_counter }|.
-          <ls_finding_rap>-%control      = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                                    cmruuid       = if_abap_behv=>mk-on
-                                                    cmrid         = if_abap_behv=>mk-on
-                                                    cmritemuuid   = if_abap_behv=>mk-on
-                                                    itemposition  = if_abap_behv=>mk-on
-                                                    findingstatus = if_abap_behv=>mk-on
-                                                    findingtype   = if_abap_behv=>mk-on
-                                                    fieldname     = if_abap_behv=>mk-on
-                                                    findingmsg    = if_abap_behv=>mk-on
-                                                    createdby     = if_abap_behv=>mk-on
-                                                    createdat     = if_abap_behv=>mk-on ).
+          <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
+          <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                               cmruuid       = if_abap_behv=>mk-on
+                                               cmrid         = if_abap_behv=>mk-on
+                                               cmritemuuid   = if_abap_behv=>mk-on
+                                               itemposition  = if_abap_behv=>mk-on
+                                               findingstatus = if_abap_behv=>mk-on
+                                               findingtype   = if_abap_behv=>mk-on
+                                               fieldname     = if_abap_behv=>mk-on
+                                               findingmsg    = if_abap_behv=>mk-on
+                                               createdby     = if_abap_behv=>mk-on
+                                               createdat     = if_abap_behv=>mk-on ).
           lv_cid_counter += 1.
           MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
           APPEND ls_finding_out TO lt_findings_out.
@@ -1272,8 +1201,8 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
           CLEAR ls_finding_out.
           APPEND INITIAL LINE TO lt_findings_rap ASSIGNING <ls_finding_rap>.
           TRY.
-              <ls_finding_rap>-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
-            CATCH   cx_uuid_error.
+              <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
+            CATCH cx_uuid_error.
           ENDTRY.
           <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
           <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
@@ -1285,18 +1214,18 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
           <ls_finding_rap>-findingmsg    = |Gross weight must be greater than zero for item { <ls_item>-itemposition }|.
           <ls_finding_rap>-createdby     = sy-uname.
           GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-          <ls_finding_rap>-%cid          = |FIND{ lv_cid_counter }|.
-          <ls_finding_rap>-%control      = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                                    cmruuid       = if_abap_behv=>mk-on
-                                                    cmrid         = if_abap_behv=>mk-on
-                                                    cmritemuuid   = if_abap_behv=>mk-on
-                                                    itemposition  = if_abap_behv=>mk-on
-                                                    findingstatus = if_abap_behv=>mk-on
-                                                    findingtype   = if_abap_behv=>mk-on
-                                                    fieldname     = if_abap_behv=>mk-on
-                                                    findingmsg    = if_abap_behv=>mk-on
-                                                    createdby     = if_abap_behv=>mk-on
-                                                    createdat     = if_abap_behv=>mk-on ).
+          <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
+          <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                               cmruuid       = if_abap_behv=>mk-on
+                                               cmrid         = if_abap_behv=>mk-on
+                                               cmritemuuid   = if_abap_behv=>mk-on
+                                               itemposition  = if_abap_behv=>mk-on
+                                               findingstatus = if_abap_behv=>mk-on
+                                               findingtype   = if_abap_behv=>mk-on
+                                               fieldname     = if_abap_behv=>mk-on
+                                               findingmsg    = if_abap_behv=>mk-on
+                                               createdby     = if_abap_behv=>mk-on
+                                               createdat     = if_abap_behv=>mk-on ).
           lv_cid_counter += 1.
           MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
           APPEND ls_finding_out TO lt_findings_out.
@@ -1306,8 +1235,8 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
           CLEAR ls_finding_out.
           APPEND INITIAL LINE TO lt_findings_rap ASSIGNING <ls_finding_rap>.
           TRY.
-              <ls_finding_rap>-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
-            CATCH   cx_uuid_error.
+              <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
+            CATCH cx_uuid_error.
           ENDTRY.
           <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
           <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
@@ -1319,33 +1248,31 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
           <ls_finding_rap>-findingmsg    = |Weight unit is missing for item { <ls_item>-itemposition }|.
           <ls_finding_rap>-createdby     = sy-uname.
           GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-          <ls_finding_rap>-%cid          = |FIND{ lv_cid_counter }|.
-          <ls_finding_rap>-%control      = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                                    cmruuid       = if_abap_behv=>mk-on
-                                                    cmrid         = if_abap_behv=>mk-on
-                                                    cmritemuuid   = if_abap_behv=>mk-on
-                                                    itemposition  = if_abap_behv=>mk-on
-                                                    findingstatus = if_abap_behv=>mk-on
-                                                    findingtype   = if_abap_behv=>mk-on
-                                                    fieldname     = if_abap_behv=>mk-on
-                                                    findingmsg    = if_abap_behv=>mk-on
-                                                    createdby     = if_abap_behv=>mk-on
-                                                    createdat     = if_abap_behv=>mk-on ).
+          <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
+          <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                               cmruuid       = if_abap_behv=>mk-on
+                                               cmrid         = if_abap_behv=>mk-on
+                                               cmritemuuid   = if_abap_behv=>mk-on
+                                               itemposition  = if_abap_behv=>mk-on
+                                               findingstatus = if_abap_behv=>mk-on
+                                               findingtype   = if_abap_behv=>mk-on
+                                               fieldname     = if_abap_behv=>mk-on
+                                               findingmsg    = if_abap_behv=>mk-on
+                                               createdby     = if_abap_behv=>mk-on
+                                               createdat     = if_abap_behv=>mk-on ).
           lv_cid_counter += 1.
           MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
           APPEND ls_finding_out TO lt_findings_out.
         ENDIF.
 
         " DG cross-check: item flagged as dangerous goods → UN/hazard/packing fields required
-        READ TABLE lt_alerts WITH KEY cmritemuuid = <ls_item>-cmritemuuid
-             TRANSPORTING NO FIELDS.
-        IF sy-subrc = 0.
+        IF line_exists( lt_alerts[ cmritemuuid = <ls_item>-cmritemuuid ] ).
           IF <ls_item>-unitednationnumber IS INITIAL.
             CLEAR ls_finding_out.
             APPEND INITIAL LINE TO lt_findings_rap ASSIGNING <ls_finding_rap>.
             TRY.
-                <ls_finding_rap>-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
-              CATCH   cx_uuid_error.
+                <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
+              CATCH cx_uuid_error.
             ENDTRY.
             <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
             <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
@@ -1357,18 +1284,18 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
             <ls_finding_rap>-findingmsg    = |UN number required for dangerous goods item { <ls_item>-itemposition }|.
             <ls_finding_rap>-createdby     = sy-uname.
             GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-            <ls_finding_rap>-%cid          = |FIND{ lv_cid_counter }|.
-            <ls_finding_rap>-%control      = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                                      cmruuid       = if_abap_behv=>mk-on
-                                                      cmrid         = if_abap_behv=>mk-on
-                                                      cmritemuuid   = if_abap_behv=>mk-on
-                                                      itemposition  = if_abap_behv=>mk-on
-                                                      findingstatus = if_abap_behv=>mk-on
-                                                      findingtype   = if_abap_behv=>mk-on
-                                                      fieldname     = if_abap_behv=>mk-on
-                                                      findingmsg    = if_abap_behv=>mk-on
-                                                      createdby     = if_abap_behv=>mk-on
-                                                      createdat     = if_abap_behv=>mk-on ).
+            <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
+            <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                                 cmruuid       = if_abap_behv=>mk-on
+                                                 cmrid         = if_abap_behv=>mk-on
+                                                 cmritemuuid   = if_abap_behv=>mk-on
+                                                 itemposition  = if_abap_behv=>mk-on
+                                                 findingstatus = if_abap_behv=>mk-on
+                                                 findingtype   = if_abap_behv=>mk-on
+                                                 fieldname     = if_abap_behv=>mk-on
+                                                 findingmsg    = if_abap_behv=>mk-on
+                                                 createdby     = if_abap_behv=>mk-on
+                                                 createdat     = if_abap_behv=>mk-on ).
             lv_cid_counter += 1.
             MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
             APPEND ls_finding_out TO lt_findings_out.
@@ -1378,8 +1305,8 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
             CLEAR ls_finding_out.
             APPEND INITIAL LINE TO lt_findings_rap ASSIGNING <ls_finding_rap>.
             TRY.
-                <ls_finding_rap>-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
-              CATCH   cx_uuid_error.
+                <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
+              CATCH cx_uuid_error.
             ENDTRY.
             <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
             <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
@@ -1391,18 +1318,18 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
             <ls_finding_rap>-findingmsg    = |Hazard class required for dangerous goods item { <ls_item>-itemposition }|.
             <ls_finding_rap>-createdby     = sy-uname.
             GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-            <ls_finding_rap>-%cid          = |FIND{ lv_cid_counter }|.
-            <ls_finding_rap>-%control      = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                                      cmruuid       = if_abap_behv=>mk-on
-                                                      cmrid         = if_abap_behv=>mk-on
-                                                      cmritemuuid   = if_abap_behv=>mk-on
-                                                      itemposition  = if_abap_behv=>mk-on
-                                                      findingstatus = if_abap_behv=>mk-on
-                                                      findingtype   = if_abap_behv=>mk-on
-                                                      fieldname     = if_abap_behv=>mk-on
-                                                      findingmsg    = if_abap_behv=>mk-on
-                                                      createdby     = if_abap_behv=>mk-on
-                                                      createdat     = if_abap_behv=>mk-on ).
+            <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
+            <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                                 cmruuid       = if_abap_behv=>mk-on
+                                                 cmrid         = if_abap_behv=>mk-on
+                                                 cmritemuuid   = if_abap_behv=>mk-on
+                                                 itemposition  = if_abap_behv=>mk-on
+                                                 findingstatus = if_abap_behv=>mk-on
+                                                 findingtype   = if_abap_behv=>mk-on
+                                                 fieldname     = if_abap_behv=>mk-on
+                                                 findingmsg    = if_abap_behv=>mk-on
+                                                 createdby     = if_abap_behv=>mk-on
+                                                 createdat     = if_abap_behv=>mk-on ).
             lv_cid_counter += 1.
             MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
             APPEND ls_finding_out TO lt_findings_out.
@@ -1412,8 +1339,8 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
             CLEAR ls_finding_out.
             APPEND INITIAL LINE TO lt_findings_rap ASSIGNING <ls_finding_rap>.
             TRY.
-                <ls_finding_rap>-findinguuid   = cl_system_uuid=>create_uuid_x16_static( ).
-              CATCH   cx_uuid_error.
+                <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
+              CATCH cx_uuid_error.
             ENDTRY.
             <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
             <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
@@ -1425,18 +1352,18 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
             <ls_finding_rap>-findingmsg    = |Packing group required for dangerous goods item { <ls_item>-itemposition }|.
             <ls_finding_rap>-createdby     = sy-uname.
             GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-            <ls_finding_rap>-%cid          = |FIND{ lv_cid_counter }|.
-            <ls_finding_rap>-%control      = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                                      cmruuid       = if_abap_behv=>mk-on
-                                                      cmrid         = if_abap_behv=>mk-on
-                                                      cmritemuuid   = if_abap_behv=>mk-on
-                                                      itemposition  = if_abap_behv=>mk-on
-                                                      findingstatus = if_abap_behv=>mk-on
-                                                      findingtype   = if_abap_behv=>mk-on
-                                                      fieldname     = if_abap_behv=>mk-on
-                                                      findingmsg    = if_abap_behv=>mk-on
-                                                      createdby     = if_abap_behv=>mk-on
-                                                      createdat     = if_abap_behv=>mk-on ).
+            <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
+            <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                                 cmruuid       = if_abap_behv=>mk-on
+                                                 cmrid         = if_abap_behv=>mk-on
+                                                 cmritemuuid   = if_abap_behv=>mk-on
+                                                 itemposition  = if_abap_behv=>mk-on
+                                                 findingstatus = if_abap_behv=>mk-on
+                                                 findingtype   = if_abap_behv=>mk-on
+                                                 fieldname     = if_abap_behv=>mk-on
+                                                 findingmsg    = if_abap_behv=>mk-on
+                                                 createdby     = if_abap_behv=>mk-on
+                                                 createdat     = if_abap_behv=>mk-on ).
             lv_cid_counter += 1.
             MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
             APPEND ls_finding_out TO lt_findings_out.
@@ -1450,15 +1377,11 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
       <ls_status>-cmruuid = <ls_hdr>-cmruuid.
       <ls_status>-cmrid   = <ls_hdr>-cmrid.
 
-      READ TABLE lt_findings_out WITH KEY cmruuid       = <ls_hdr>-cmruuid
-                                          findingstatus = 'INVALID'
-           TRANSPORTING NO FIELDS.
-      IF sy-subrc = 0.
+      IF line_exists( lt_findings_out[ cmruuid       = <ls_hdr>-cmruuid
+                                       findingstatus = 'INVALID' ] ).
         <ls_status>-overallstatus = 'INVALID'.
       ELSE.
-        READ TABLE lt_findings_out WITH KEY cmruuid = <ls_hdr>-cmruuid
-             TRANSPORTING NO FIELDS.
-        IF sy-subrc = 0.
+        IF line_exists( lt_findings_out[ cmruuid = <ls_hdr>-cmruuid ] ).
           <ls_status>-overallstatus = 'INCOMPLETE'.
         ELSE.
           <ls_status>-overallstatus = 'VALID'.
@@ -1472,6 +1395,7 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
       MODIFY ENTITIES OF zr_pru_cmr_valid
              ENTITY zrprucmrvalid
              CREATE FROM lt_findings_rap
+             " TODO: variable is assigned but never used (ABAP cleaner)
              MAPPED DATA(ls_mapped)
              FAILED DATA(ls_failed).
       IF ls_failed IS NOT INITIAL.
@@ -1481,13 +1405,16 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
     ENDIF.
 
     " --- Emit output key-value pair ---
-    ls_output-cmrstatus = lt_cmr_status.
-    ls_output-findings  = lt_findings_out.
-
+*    ls_output-cmrstatus = lt_cmr_status.
     APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv>).
-    <ls_kv>-name  = 'CMRVALIDATION'.
-    <ls_kv>-value = /ui2/cl_json=>serialize( data     = ls_output
-                                              compress = abap_true ).
+    <ls_kv>-name  = 'CMRSTATUS'.
+    <ls_kv>-value = /ui2/cl_json=>serialize( data     = lt_cmr_status
+                                             compress = abap_true ).
+
+    APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING <ls_kv>.
+    <ls_kv>-name  = 'CMRFINDING'.
+    <ls_kv>-value = /ui2/cl_json=>serialize( data     = lt_findings_out
+                                             compress = abap_true ).
   ENDMETHOD.
 ENDCLASS.
 
@@ -1524,11 +1451,14 @@ CLASS lcl_adf_schema_provider IMPLEMENTATION.
   METHOD get_input_abap_type.
     CASE is_tool_master_data-toolname.
       WHEN `CREATE_CMR`.
-        ro_structure_schema ?= cl_abap_structdescr=>describe_by_name( p_name = `\INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_CMR_CREATE_REQUEST` ).
+        ro_structure_schema ?= cl_abap_structdescr=>describe_by_name(
+                                   p_name = `\INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_CMR_CREATE_REQUEST` ).
       WHEN `CLASSIFY_DANGER_GOODS`.
-        ro_structure_schema ?= cl_abap_structdescr=>describe_by_name( p_name = `\INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_CMR_CLASSIFY_REQ` ).
+        ro_structure_schema ?= cl_abap_structdescr=>describe_by_name(
+                                   p_name = `\INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_CMR_CLASSIFY_REQ` ).
       WHEN `VALIDATE_CMR`.
-        ro_structure_schema ?= cl_abap_structdescr=>describe_by_name( p_name = `\INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_CMR_VALIDATE_REQ` ).
+        ro_structure_schema ?= cl_abap_structdescr=>describe_by_name(
+                                   p_name = `\INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_CMR_VALIDATE_REQ` ).
       WHEN OTHERS.
         RAISE EXCEPTION NEW zpru_cx_agent_core( ).
     ENDCASE.

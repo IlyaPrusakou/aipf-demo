@@ -44,13 +44,23 @@ INTERFACE zpru_if_computer_vision
   TYPES: tt_cmr_alert_context TYPE STANDARD TABLE OF ts_cmr_alert_context WITH EMPTY KEY.
 
   " CONTEXT FIELD 'CMRHEADERS'
-  TYPES tS_cmr_header_context TYPE zpru_cmr_header.
-  TYPES tt_cmr_header_context TYPE STANDARD TABLE OF tS_cmr_header_context WITH EMPTY KEY.
+  TYPES ts_cmr_header_context TYPE zpru_cmr_header.
+  TYPES tt_cmr_header_context TYPE STANDARD TABLE OF ts_cmr_header_context WITH EMPTY KEY.
 
   " CONTEXT FIELD 'CMRITEMS'
-  TYPES tS_cmr_item_context   TYPE zpru_cmr_item.
-  TYPES tt_cmr_item_context   TYPE STANDARD TABLE OF tS_cmr_item_context WITH EMPTY KEY.
+  TYPES ts_cmr_item_context   TYPE zpru_cmr_item.
+  TYPES tt_cmr_item_context   TYPE STANDARD TABLE OF ts_cmr_item_context WITH EMPTY KEY.
 
+  " CONTEXT FIELD 'CMRCREATIONCONTENT'
+  TYPES:
+    BEGIN OF ts_cmr_create_content,
+      message    TYPE string,
+      cmrheaders TYPE tt_cmr_header_context,
+      cmritems   TYPE tt_cmr_item_context,
+    END OF ts_cmr_create_content.
+  TYPES tt_cmr_create_content TYPE STANDARD TABLE OF ts_cmr_create_content WITH EMPTY KEY.
+
+  " CONTEXT FIELD 'CMRSTATUS'
   TYPES:
     BEGIN OF ts_cmr_overall_status,
       cmruuid       TYPE sysuuid_x16,
@@ -59,12 +69,8 @@ INTERFACE zpru_if_computer_vision
     END OF ts_cmr_overall_status,
     tt_cmr_overall_status TYPE STANDARD TABLE OF ts_cmr_overall_status WITH EMPTY KEY.
 
-  TYPES:
-    BEGIN OF ts_cmr_create_content,
-      message    TYPE string,
-      cmrheaders TYPE STANDARD TABLE OF zpru_cmr_header WITH EMPTY KEY,
-      cmritems   TYPE STANDARD TABLE OF zpru_cmr_item WITH EMPTY KEY,
-    END OF ts_cmr_create_content.
-  TYPES tt_cmr_create_content TYPE STANDARD TABLE OF ts_cmr_create_content WITH EMPTY KEY.
+  " CONTEXT FIELD 'CMRFINDING'
+  TYPES: ts_cmr_finding TYPE zpru_cmr_valid.
+  TYPES: tt_cmr_finding TYPE STANDARD TABLE OF  ts_cmr_finding WITH EMPTY KEY.
 
 ENDINTERFACE.
