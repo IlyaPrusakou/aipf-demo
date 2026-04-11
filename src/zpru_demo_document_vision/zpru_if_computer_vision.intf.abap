@@ -190,12 +190,12 @@ INTERFACE zpru_if_computer_vision
 
   " 6 INPUT FOR TOOL 'CREATE_WAREHOUSE_TASK'
   TYPES:
-    BEGIN OF ts_create_warehouse_task_request,
+    BEGIN OF ts_create_whse_task_request,
       inbdeliveryheaders TYPE string,
       inbdeliveryitems   TYPE string,
       storagebins        TYPE string,
-    END OF ts_create_warehouse_task_request,
-    tt_create_warehouse_task_request TYPE STANDARD TABLE OF ts_create_warehouse_task_request WITH EMPTY KEY.
+    END OF ts_create_whse_task_request,
+    tt_create_whse_task_request TYPE STANDARD TABLE OF ts_create_whse_task_request WITH EMPTY KEY.
 
   " CONTEXT FIELDS
   " CONTEXT FIELD 'CMRALERTS'

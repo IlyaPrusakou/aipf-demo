@@ -1596,7 +1596,7 @@ CLASS lcl_adf_create_warehouse_task IMPLEMENTATION.
     DATA lv_task_counter        TYPE i VALUE 1.
     DATA lv_max_tanum           TYPE char10.
 
-    FIELD-SYMBOLS <ls_input> TYPE zpru_if_computer_vision=>ts_create_warehouse_task_request.
+    FIELD-SYMBOLS <ls_input> TYPE zpru_if_computer_vision=>ts_create_whse_task_request.
 
     ASSIGN is_input->* TO <ls_input>.
     IF sy-subrc <> 0.
@@ -1653,7 +1653,7 @@ CLASS lcl_adf_create_warehouse_task IMPLEMENTATION.
       <ls_task_rap>-tanum = |T{ lv_next_tanum_num }|.
       <ls_task_rap>-deliveryid = <ls_inb_header>-deliveryid.
       <ls_task_rap>-itempos = <ls_inb_item>-itempos.
-      <ls_task_rap>-material = <ls_inb_item>-material.
+*      <ls_task_rap>-material = <ls_inb_item>-material. qqq
       <ls_task_rap>-quantity = <ls_inb_item>-quantity.
       <ls_task_rap>-unit = <ls_inb_item>-unit.
       " Use 'RECEIVING' as source bin (goods arrive here)
