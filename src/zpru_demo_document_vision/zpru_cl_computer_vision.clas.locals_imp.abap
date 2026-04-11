@@ -1563,9 +1563,8 @@ CLASS lcl_adf_find_storage_bin IMPLEMENTATION.
 
     " Read storage bins from ZPRU_DEMO_STOR_BIN folder (ZPRUSTORBIN table)
     SELECT * FROM zprustorbin
-      INTO CORRESPONDING FIELDS OF TABLE @lt_storage_bins
-      WHERE is_blocked = @abap_false
-      ORDER BY bin_id.
+      WHERE is_blocked = @abap_false ORDER BY bin_id
+      INTO CORRESPONDING FIELDS OF TABLE @lt_storage_bins .
 
     IF sy-subrc = 0.
       " Simple logic: for demonstration, return all unblocked storage bins

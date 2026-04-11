@@ -155,6 +155,23 @@ INTERFACE zpru_if_computer_vision
     END OF ts_cmr_validate_req,
     tt_cmr_validate_req TYPE STANDARD TABLE OF ts_cmr_validate_req WITH EMPTY KEY.
 
+  " 4 INPUT FOR TOOL 'CREATE_INB_DELIVERY'
+  TYPES:
+    BEGIN OF ts_inb_delivery_create_request,
+      inbdeliverycreationcontent TYPE string,
+    END OF ts_inb_delivery_create_request,
+    tt_inb_delivery_create_request TYPE STANDARD TABLE OF ts_inb_delivery_create_request WITH EMPTY KEY.
+
+  " 5 INPUT FOR TOOL 'FIND_STORAGE_BIN'
+  TYPES:
+    BEGIN OF ts_find_storage_bin_request,
+      cmrheaders          TYPE string,
+      cmritems            TYPE string,
+      inbdeliveryheaders  TYPE string,
+      inbdeliveryitems    TYPE string,
+    END OF ts_find_storage_bin_request,
+    tt_find_storage_bin_request TYPE STANDARD TABLE OF ts_find_storage_bin_request WITH EMPTY KEY.
+
   " CONTEXT FIELDS
   " CONTEXT FIELD 'CMRALERTS'
   TYPES ts_cmr_alert_context  TYPE zpru_cmr_alert.
@@ -207,25 +224,8 @@ INTERFACE zpru_if_computer_vision
     END OF ts_inb_delivery_create_content.
   TYPES tt_inb_delivery_create_content TYPE STANDARD TABLE OF ts_inb_delivery_create_content WITH EMPTY KEY.
 
-  " 4 INPUT FOR TOOL 'CREATE_INB_DELIVERY'
-  TYPES:
-    BEGIN OF ts_inb_delivery_create_request,
-      inbdeliverycreationcontent TYPE string,
-    END OF ts_inb_delivery_create_request,
-    tt_inb_delivery_create_request TYPE STANDARD TABLE OF ts_inb_delivery_create_request WITH EMPTY KEY.
-
   " CONTEXT FIELD 'STORAGEBINS'
-  TYPES ts_storage_bin_context TYPE zpru_storbin.
+  TYPES ts_storage_bin_context TYPE ZPRUSTORBIN.
   TYPES tt_storage_bin_context TYPE STANDARD TABLE OF ts_storage_bin_context WITH EMPTY KEY.
-
-  " 5 INPUT FOR TOOL 'FIND_STORAGE_BIN'
-  TYPES:
-    BEGIN OF ts_find_storage_bin_request,
-      cmrheaders          TYPE string,
-      cmritems            TYPE string,
-      inbdeliveryheaders  TYPE string,
-      inbdeliveryitems    TYPE string,
-    END OF ts_find_storage_bin_request,
-    tt_find_storage_bin_request TYPE STANDARD TABLE OF ts_find_storage_bin_request WITH EMPTY KEY.
 
 ENDINTERFACE.
