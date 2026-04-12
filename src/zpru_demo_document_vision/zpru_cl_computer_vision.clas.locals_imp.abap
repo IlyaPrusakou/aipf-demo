@@ -1436,6 +1436,39 @@ CLASS lcl_adf_create_inb_delivery IMPLEMENTATION.
     /ui2/cl_json=>deserialize( EXPORTING json = <ls_inb_delivery_create>-cmritems
                                CHANGING  data = lt_cmr_item ).
 
+    " Populate working header/item tables from deserialized CMR data
+    IF lt_cmr_header IS NOT INITIAL.
+      FIELD-SYMBOLS <ls_cmr> TYPE LINE OF zpru_if_computer_vision=>tt_cmr_header_context.
+      FIELD-SYMBOLS <ls_hdr_out> TYPE LINE OF zpru_if_computer_vision=>tt_inb_delivery_header_context.
+      LOOP AT lt_cmr_header ASSIGNING <ls_cmr>.
+        APPEND INITIAL LINE TO lt_headers_all ASSIGNING <ls_hdr_out>.
+        <ls_hdr_out>-uuid        = <ls_cmr>-cmruuid.
+        <ls_hdr_out>-cmrreference= <ls_cmr>-cmrid.
+        <ls_hdr_out>-vendor      = <ls_cmr>-senderinfo.
+        <ls_hdr_out>-consignee   = <ls_cmr>-consigneeinfo.
+        <ls_hdr_out>-arrivalplace= <ls_cmr>-deliveryplace.
+        <ls_hdr_out>-deliverydate= <ls_cmr>-takingoverdate.
+      ENDLOOP.
+    ENDIF.
+    IF lt_cmr_item IS NOT INITIAL.
+      FIELD-SYMBOLS <ls_cmr_item> TYPE LINE OF zpru_if_computer_vision=>tt_cmr_item_context.
+      FIELD-SYMBOLS <ls_item_out> TYPE LINE OF zpru_if_computer_vision=>tt_inb_delivery_item_context.
+      LOOP AT lt_cmr_item ASSIGNING <ls_cmr_item>.
+        APPEND INITIAL LINE TO lt_items_all ASSIGNING <ls_item_out>.
+        <ls_item_out>-uuid         = <ls_cmr_item>-cmritemuuid.
+        <ls_item_out>-parent_uuid  = <ls_cmr_item>-cmruuid.
+        <ls_item_out>-cmritemref   = <ls_cmr_item>-cmritemuuid.
+        <ls_item_out>-itempos      = <ls_cmr_item>-itemposition.
+        <ls_item_out>-materialdesc = <ls_cmr_item>-natureofgoods.
+        <ls_item_out>-quantity    = <ls_cmr_item>-packagecount.
+        <ls_item_out>-unit        = <ls_cmr_item>-weightunitfield.
+        <ls_item_out>-grossweight = <ls_cmr_item>-grossweight.
+        <ls_item_out>-weightunit  = <ls_cmr_item>-weightunitfield.
+        <ls_item_out>-hazardclass = <ls_cmr_item>-hazardclass.
+      ENDLOOP.
+    ENDIF.
+
+    " Fallback: if nested creation content is used (uncommented elsewhere), merge it
 *    LOOP AT lt_creation_content ASSIGNING FIELD-SYMBOL(<ls_creation_content>).
 *      lt_headers_all = CORRESPONDING #( BASE ( lt_headers_all ) <ls_creation_content>-inbdeliveryheaders ).
 *      lt_items_all = CORRESPONDING #( BASE ( lt_items_all ) <ls_creation_content>-inbdeliveryitems ).
@@ -1446,6 +1479,7 @@ CLASS lcl_adf_create_inb_delivery IMPLEMENTATION.
 
     DATA(lv_next_deliveryid_num) = CONV i( lv_max_deliveryid ) + 1.
 
+    " Assign generated delivery ids to headers and propagate to items
     LOOP AT lt_headers_all ASSIGNING FIELD-SYMBOL(<ls_header>).
       <ls_header>-deliveryid = |DL{ lv_next_deliveryid_num }|.
 
@@ -1461,7 +1495,17 @@ CLASS lcl_adf_create_inb_delivery IMPLEMENTATION.
     LOOP AT lt_headers_all ASSIGNING FIELD-SYMBOL(<ls_header_entity>).
 
       APPEND INITIAL LINE TO lt_inb_delivery_create_head ASSIGNING FIELD-SYMBOL(<ls_create_head>).
-      <ls_create_head> = CORRESPONDING #( <ls_header_entity> MAPPING TO ENTITY CHANGING CONTROL ).
+      TRY.
+          <ls_create_head>-uuid = cl_system_uuid=>create_uuid_x16_static( ).
+        CATCH cx_uuid_error.
+      ENDTRY.
+      " Map header fields from working header table to inbound delivery header
+      <ls_create_head>-deliveryid   = <ls_header_entity>-deliveryid.
+      <ls_create_head>-vendor       = <ls_header_entity>-vendor.
+      <ls_create_head>-consignee    = <ls_header_entity>-consignee.
+      <ls_create_head>-arrivalplace = <ls_header_entity>-arrivalplace.
+      <ls_create_head>-deliverydate = <ls_header_entity>-deliverydate.
+      <ls_create_head>-cmrreference = <ls_header_entity>-cmrreference.
       <ls_create_head>-%cid = '1'.
 
       LOOP AT lt_items_all ASSIGNING FIELD-SYMBOL(<ls_item_entity>)
@@ -1469,7 +1513,20 @@ CLASS lcl_adf_create_inb_delivery IMPLEMENTATION.
         APPEND INITIAL LINE TO lt_inb_delivery_create_item ASSIGNING FIELD-SYMBOL(<ls_create_item>).
         <ls_create_item>-%cid_ref = '1'.
         APPEND INITIAL LINE TO <ls_create_item>-%target ASSIGNING FIELD-SYMBOL(<ls_item_target>).
-        <ls_item_target> = CORRESPONDING #( <ls_item_entity> MAPPING TO ENTITY CHANGING CONTROL ).
+        TRY.
+            <ls_item_target>-uuid = cl_system_uuid=>create_uuid_x16_static( ).
+          CATCH cx_uuid_error.
+        ENDTRY.
+        " Map item fields from working item table to inbound delivery item
+        <ls_item_target>-parent_uuid = <ls_item_entity>-parent_uuid.
+        <ls_item_target>-deliveryid  = <ls_item_entity>-deliveryid.
+        <ls_item_target>-itempos     = <ls_item_entity>-itempos.
+        <ls_item_target>-materialdesc= <ls_item_entity>-materialdesc.
+        <ls_item_target>-quantity    = <ls_item_entity>-quantity.
+        <ls_item_target>-unit        = <ls_item_entity>-unit.
+        <ls_item_target>-grossweight = <ls_item_entity>-grossweight.
+        <ls_item_target>-weightunit  = <ls_item_entity>-weightunit.
+        <ls_item_target>-hazardclass = <ls_item_entity>-hazardclass.
         <ls_item_target>-%cid = lv_item_cid.
 
         lv_item_cid += 1.
