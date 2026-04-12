@@ -174,7 +174,9 @@ INTERFACE zpru_if_computer_vision
   " 4 INPUT FOR TOOL 'CREATE_INB_DELIVERY'
   TYPES:
     BEGIN OF ts_inb_delivery_create_request,
-      inbdeliverycreationcontent TYPE string,
+      cmrheaders         TYPE string,
+      cmritems           TYPE string,
+      cmrcreationcontent TYPE string,
     END OF ts_inb_delivery_create_request,
     tt_inb_delivery_create_request TYPE STANDARD TABLE OF ts_inb_delivery_create_request WITH EMPTY KEY.
 
@@ -239,15 +241,6 @@ INTERFACE zpru_if_computer_vision
   " CONTEXT FIELD 'INBDELIVERYITEMS'
   TYPES ts_inb_delivery_item_context TYPE zpruinbitm.
   TYPES tt_inb_delivery_item_context TYPE STANDARD TABLE OF ts_inb_delivery_item_context WITH EMPTY KEY.
-
-  " CONTEXT FIELD 'INBDELIVERYCREATIONCONTENT'
-  TYPES:
-    BEGIN OF ts_inb_delivery_create_content,
-      message               TYPE string,
-      inbdeliveryheaders    TYPE tt_inb_delivery_header_context,
-      inbdeliveryitems      TYPE tt_inb_delivery_item_context,
-    END OF ts_inb_delivery_create_content.
-  TYPES tt_inb_delivery_create_content TYPE STANDARD TABLE OF ts_inb_delivery_create_content WITH EMPTY KEY.
 
   " CONTEXT FIELD 'STORAGEBINS'
   TYPES ts_storage_bin_context TYPE ZPRUSTORBIN.

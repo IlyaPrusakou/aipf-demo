@@ -1419,7 +1419,10 @@ CLASS lcl_adf_create_inb_delivery IMPLEMENTATION.
     DATA lt_inb_delivery_create_item  TYPE TABLE FOR CREATE zprur_inbhdr\\inbhdr\_inbitm.
     DATA lt_inb_delivery_header_ctx   TYPE zpru_if_computer_vision=>tt_inb_delivery_header_context.
     DATA lt_inb_delivery_item_ctx     TYPE zpru_if_computer_vision=>tt_inb_delivery_item_context.
-    DATA lt_creation_content          TYPE zpru_if_computer_vision=>tt_inb_delivery_create_content.
+*    DATA lt_creation_content          TYPE zpru_if_computer_vision=>tt_inb_delivery_create_content.
+    DATA lt_cmr_header TYPE zpru_if_computer_vision=>tt_cmr_header_context.
+    DATA lt_cmr_item TYPE zpru_if_computer_vision=>tt_cmr_item_context.
+
 
     FIELD-SYMBOLS <ls_inb_delivery_create> TYPE zpru_if_computer_vision=>ts_inb_delivery_create_request.
 
@@ -1427,13 +1430,16 @@ CLASS lcl_adf_create_inb_delivery IMPLEMENTATION.
     IF sy-subrc <> 0.
       RAISE EXCEPTION NEW zpru_cx_agent_core( ).
     ENDIF.
-    /ui2/cl_json=>deserialize( EXPORTING json = <ls_inb_delivery_create>-inbdeliverycreationcontent
-                               CHANGING  data = lt_creation_content ).
+    /ui2/cl_json=>deserialize( EXPORTING json = <ls_inb_delivery_create>-cmrheaders
+                               CHANGING  data = lt_cmr_header ).
 
-    LOOP AT lt_creation_content ASSIGNING FIELD-SYMBOL(<ls_creation_content>).
-      lt_headers_all = CORRESPONDING #( BASE ( lt_headers_all ) <ls_creation_content>-inbdeliveryheaders ).
-      lt_items_all = CORRESPONDING #( BASE ( lt_items_all ) <ls_creation_content>-inbdeliveryitems ).
-    ENDLOOP.
+    /ui2/cl_json=>deserialize( EXPORTING json = <ls_inb_delivery_create>-cmritems
+                               CHANGING  data = lt_cmr_item ).
+
+*    LOOP AT lt_creation_content ASSIGNING FIELD-SYMBOL(<ls_creation_content>).
+*      lt_headers_all = CORRESPONDING #( BASE ( lt_headers_all ) <ls_creation_content>-inbdeliveryheaders ).
+*      lt_items_all = CORRESPONDING #( BASE ( lt_items_all ) <ls_creation_content>-inbdeliveryitems ).
+*    ENDLOOP.
 
     SELECT MAX( deliveryid ) FROM zprur_inbhdr
       INTO @DATA(lv_max_deliveryid).
@@ -1512,10 +1518,10 @@ CLASS lcl_adf_create_inb_delivery IMPLEMENTATION.
     <ls_key_value>-value = /ui2/cl_json=>serialize( data     = lt_inb_delivery_item_ctx
                                                     compress = abap_true ).
 
-    APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING <ls_key_value>.
-    <ls_key_value>-name  = zpru_if_computer_vision=>cs_context_field-inbdeliverycreationcontent-field_name.
-    <ls_key_value>-value = /ui2/cl_json=>serialize( data     = lt_creation_content
-                                                    compress = abap_true ).
+*    APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING <ls_key_value>.
+*    <ls_key_value>-name  = zpru_if_computer_vision=>cs_context_field-inbdeliverycreationcontent-field_name.
+*    <ls_key_value>-value = /ui2/cl_json=>serialize( data     = lt_creation_content
+*                                                    compress = abap_true ).
   ENDMETHOD.
 ENDCLASS.
 
@@ -1726,9 +1732,9 @@ CLASS lcl_adf_tool_provider IMPLEMENTATION.
         ro_executor = NEW lcl_adf_validate_cmr( ).
       WHEN `CREATE_INB_DELIVERY`.
         ro_executor = NEW lcl_adf_create_inb_delivery( ).
-       WHEN `FIND_STORAGE_BIN`.
+      WHEN `FIND_STORAGE_BIN`.
         ro_executor = NEW lcl_adf_find_storage_bin( ).
-       WHEN `CREATE_WAREHOUSE_TASK`.
+      WHEN `CREATE_WAREHOUSE_TASK`.
         ro_executor = NEW lcl_adf_create_warehouse_task( ).
       WHEN OTHERS.
         RAISE EXCEPTION NEW zpru_cx_agent_core( ).
@@ -1764,13 +1770,13 @@ CLASS lcl_adf_schema_provider IMPLEMENTATION.
       WHEN `CREATE_INB_DELIVERY`.
         ro_structure_schema ?= cl_abap_structdescr=>describe_by_name(
                                    p_name = `\INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_INB_DELIVERY_CREATE_REQUEST` ).
-       WHEN `FIND_STORAGE_BIN`.
+      WHEN `FIND_STORAGE_BIN`.
         ro_structure_schema ?= cl_abap_structdescr=>describe_by_name(
                                    p_name = `\INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_FIND_STORAGE_BIN_REQUEST` ).
-       WHEN `CREATE_WAREHOUSE_TASK`.
+      WHEN `CREATE_WAREHOUSE_TASK`.
         ro_structure_schema ?= cl_abap_structdescr=>describe_by_name(
                                    p_name = `\INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_CREATE_WAREHOUSE_TASK_REQUEST` ).
-       WHEN OTHERS.
+      WHEN OTHERS.
         RAISE EXCEPTION NEW zpru_cx_agent_core( ).
     ENDCASE.
   ENDMETHOD.
