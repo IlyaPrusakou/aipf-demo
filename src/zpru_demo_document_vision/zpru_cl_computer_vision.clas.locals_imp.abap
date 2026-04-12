@@ -400,6 +400,21 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
     <ls_execution_plan>-sequence  = 3.
     <ls_execution_plan>-toolname  = zpru_if_computer_vision=>cs_tools-validate_cmr.
 
+    APPEND INITIAL LINE TO et_execution_plan ASSIGNING <ls_execution_plan>.
+    <ls_execution_plan>-agentuuid = is_agent-agentuuid.
+    <ls_execution_plan>-sequence  = 4.
+    <ls_execution_plan>-toolname  = zpru_if_computer_vision=>cs_tools-create_inb_delivery.
+
+    APPEND INITIAL LINE TO et_execution_plan ASSIGNING <ls_execution_plan>.
+    <ls_execution_plan>-agentuuid = is_agent-agentuuid.
+    <ls_execution_plan>-sequence  = 5.
+    <ls_execution_plan>-toolname  = zpru_if_computer_vision=>cs_tools-find_storage_bin.
+
+    APPEND INITIAL LINE TO et_execution_plan ASSIGNING <ls_execution_plan>.
+    <ls_execution_plan>-agentuuid = is_agent-agentuuid.
+    <ls_execution_plan>-sequence  = 6.
+    <ls_execution_plan>-toolname  = zpru_if_computer_vision=>cs_tools-create_warehouse_task.
+
     ev_langu = sy-langu.
   ENDMETHOD.
 
@@ -1636,7 +1651,6 @@ CLASS lcl_adf_create_warehouse_task IMPLEMENTATION.
       RAISE EXCEPTION NEW zpru_cx_agent_core( ).
     ENDIF.
 
-    " Deserialize input context data
     IF <ls_input>-inbdeliveryheaders IS NOT INITIAL.
       /ui2/cl_json=>deserialize( EXPORTING json          = <ls_input>-inbdeliveryheaders
                                            hex_as_base64 = abap_false
@@ -1699,20 +1713,17 @@ CLASS lcl_adf_create_warehouse_task IMPLEMENTATION.
     ENDLOOP.
 
     IF lt_warehouse_tasks_rap IS INITIAL.
-      " No tasks created - return empty output
       APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv_empty>).
       <ls_kv_empty>-name  = zpru_if_computer_vision=>cs_context_field-warehousetasks-field_name.
       <ls_kv_empty>-value = ``.
       RETURN.
     ENDIF.
 
-    " Persist warehouse tasks
     MODIFY ENTITIES OF zprur_task
            ENTITY task
            CREATE FROM lt_warehouse_tasks_rap
            MAPPED DATA(ls_mapped)
            FAILED DATA(ls_failed)
-           " TODO: variable is assigned but never used (ABAP cleaner)
            REPORTED DATA(ls_reported).
 
     IF ls_failed IS NOT INITIAL.
@@ -1720,7 +1731,6 @@ CLASS lcl_adf_create_warehouse_task IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Read back created tasks
     READ ENTITIES OF zprur_task
          ENTITY task
          ALL FIELDS WITH CORRESPONDING #( ls_mapped-task )
@@ -1728,7 +1738,6 @@ CLASS lcl_adf_create_warehouse_task IMPLEMENTATION.
 
     lt_warehouse_tasks_out = CORRESPONDING #( lt_created_tasks_rap MAPPING FROM ENTITY ).
 
-    " Output the created warehouse tasks
     APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv>).
     <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-warehousetasks-field_name.
     <ls_kv>-value = /ui2/cl_json=>serialize( data     = lt_warehouse_tasks_out
