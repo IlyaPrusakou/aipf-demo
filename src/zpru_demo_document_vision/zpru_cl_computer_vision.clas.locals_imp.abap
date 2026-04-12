@@ -528,21 +528,108 @@ ENDCLASS.
 
 CLASS lcl_adf_agent_info_provider IMPLEMENTATION.
   METHOD get_agent_main_info.
+    ev_agentname    = `Document Visual Recognition Agent`.
+    ev_agentversion = `Version 1.0.0`.
+    ev_agentrole    = `Extracts structured data from delivery documents (CMR), detects dangerous goods, creates CMR and inbound delivery records, validates and raises alerts, and suggests warehouse tasks.`.
   ENDMETHOD.
 
   METHOD get_free_text.
   ENDMETHOD.
 
   METHOD prepare_agent_domains.
+    rs_agent_domains-agentdomainname    = `Document Visual Recognition`.
+    rs_agent_domains-agentdomaincontent = |Extract structured data from delivery documents (CMR), classify dangerous goods, create inbound delivery records, and orchestrate basic warehouse tasks.|.
+
+    APPEND INITIAL LINE TO rs_agent_domains-agentsubdomains ASSIGNING FIELD-SYMBOL(<ls_sub_domains>).
+    <ls_sub_domains>-agentsubdomainname    = `Document OCR & Data Extraction`.
+    <ls_sub_domains>-agentsubdomaincontent = `Recognize text and structured fields from scanned delivery documents (CMR) and return JSON-ready header/item structures.`.
+
+    APPEND INITIAL LINE TO rs_agent_domains-agentsubdomains ASSIGNING <ls_sub_domains>.
+    <ls_sub_domains>-agentsubdomainname    = `Dangerous Goods Classification`.
+    <ls_sub_domains>-agentsubdomaincontent = `Detect hazardous goods using explicit fields (hazard class, UN number) and free-text indicators; emit alerts and DG metadata.`.
+
+    APPEND INITIAL LINE TO rs_agent_domains-agentsubdomains ASSIGNING <ls_sub_domains>.
+    <ls_sub_domains>-agentsubdomainname    = `Inbound Delivery Automation`.
+    <ls_sub_domains>-agentsubdomaincontent = `Map extracted CMR data to inbound delivery entities, generate delivery IDs, and persist inbound headers/items via RAP.`.
+
+    APPEND INITIAL LINE TO rs_agent_domains-agentsubdomains ASSIGNING <ls_sub_domains>.
+    <ls_sub_domains>-agentsubdomainname    = `Warehouse Tasking & Storage`.
+    <ls_sub_domains>-agentsubdomaincontent = `Find available storage bins and generate warehouse tasks for received items, integrating basic allocation heuristics.`.
+
+    APPEND INITIAL LINE TO rs_agent_domains-agentsubdomains ASSIGNING <ls_sub_domains>.
+    <ls_sub_domains>-agentsubdomainname    = `Validation & Compliance`.
+    <ls_sub_domains>-agentsubdomaincontent = `Validate mandatory fields, weights, and dates; record findings and provide actionable remediation suggestions.`.
   ENDMETHOD.
 
   METHOD set_agent_goals.
+    APPEND INITIAL LINE TO rt_agent_goals ASSIGNING FIELD-SYMBOL(<ls_agent_goal>).
+    <ls_agent_goal>-agentgoalid              = 1.
+    <ls_agent_goal>-agentgoaldescription     = `Accurate Document Extraction`.
+    <ls_agent_goal>-agentgoalpriority        = 1.
+    <ls_agent_goal>-agentgoalcontent         = `Extract structured header and item data from delivery documents (CMR) with high accuracy and return JSON matching the expected schema.`.
+    <ls_agent_goal>-agentgoalsuccesscriteria = `Extracted JSON validates against schema and contains required header and item fields`.
+
+    APPEND INITIAL LINE TO rt_agent_goals ASSIGNING <ls_agent_goal>.
+    <ls_agent_goal>-agentgoalid              = 2.
+    <ls_agent_goal>-agentgoaldescription     = `Dangerous Goods Detection`.
+    <ls_agent_goal>-agentgoalpriority        = 1.
+    <ls_agent_goal>-agentgoalcontent         = `Detect hazardous goods using explicit fields (hazard class, UN number) and free-text indicators; raise alerts for suspect items.`.
+    <ls_agent_goal>-agentgoalsuccesscriteria = `All dangerous items are flagged and alerts persisted in the system`.
+
+    APPEND INITIAL LINE TO rt_agent_goals ASSIGNING <ls_agent_goal>.
+    <ls_agent_goal>-agentgoalid              = 3.
+    <ls_agent_goal>-agentgoaldescription     = `Inbound Delivery Creation`.
+    <ls_agent_goal>-agentgoalpriority        = 2.
+    <ls_agent_goal>-agentgoalcontent         = `Map extracted CMR data to inbound delivery entities and persist headers and items via RAP; generate delivery IDs.`.
+    <ls_agent_goal>-agentgoalsuccesscriteria = `Inbound header and item records are created and returned in the execution context`.
+
+    APPEND INITIAL LINE TO rt_agent_goals ASSIGNING <ls_agent_goal>.
+    <ls_agent_goal>-agentgoalid              = 4.
+    <ls_agent_goal>-agentgoaldescription     = `Validation and Remediation Guidance`.
+    <ls_agent_goal>-agentgoalpriority        = 2.
+    <ls_agent_goal>-agentgoalcontent         = `Validate mandatory fields, weights, units and dates; record findings and provide actionable remediation steps for operators.`.
+    <ls_agent_goal>-agentgoalsuccesscriteria = `Findings are recorded for invalid or incomplete data and suggested fixes are provided`.
   ENDMETHOD.
 
   METHOD set_agent_restrictions.
   ENDMETHOD.
 
   METHOD set_tool_metadata.
+    APPEND INITIAL LINE TO rt_tool_metadata ASSIGNING FIELD-SYMBOL(<ls_tool>).
+    <ls_tool>-toolname        = `CREATE_CMR`.
+    <ls_tool>-tooldesciption  = `Create CMR`.
+    <ls_tool>-toolexplanation = `Parse extracted CMR JSON and persist header/items (RAP).`.
+    <ls_tool>-tooltype        = zpru_if_adf_type_and_constant=>cs_step_type-abap_code.
+
+    APPEND INITIAL LINE TO rt_tool_metadata ASSIGNING <ls_tool>.
+    <ls_tool>-toolname        = `CLASSIFY_DANGER_GOODS`.
+    <ls_tool>-tooldesciption  = `Dangerous goods classification`.
+    <ls_tool>-toolexplanation = `Detect hazardous goods by fields (hazard class/UN) and free-text heuristics.`.
+    <ls_tool>-tooltype        = zpru_if_adf_type_and_constant=>cs_step_type-abap_code.
+
+    APPEND INITIAL LINE TO rt_tool_metadata ASSIGNING <ls_tool>.
+    <ls_tool>-toolname        = `VALIDATE_CMR`.
+    <ls_tool>-tooldesciption  = `Validate CMR`.
+    <ls_tool>-toolexplanation = `Run mandatory field checks, weight/date validations and emit findings.`.
+    <ls_tool>-tooltype        = zpru_if_adf_type_and_constant=>cs_step_type-abap_code.
+
+    APPEND INITIAL LINE TO rt_tool_metadata ASSIGNING <ls_tool>.
+    <ls_tool>-toolname        = `CREATE_INB_DELIVERY`.
+    <ls_tool>-tooldesciption  = `Create Inbound Delivery`.
+    <ls_tool>-toolexplanation = `Map CMR headers/items to inbound delivery entities and persist via RAP.`.
+    <ls_tool>-tooltype        = zpru_if_adf_type_and_constant=>cs_step_type-abap_code.
+
+    APPEND INITIAL LINE TO rt_tool_metadata ASSIGNING <ls_tool>.
+    <ls_tool>-toolname        = `FIND_STORAGE_BIN`.
+    <ls_tool>-tooldesciption  = `Find Storage Bin`.
+    <ls_tool>-toolexplanation = `Locate suitable storage bins for received items using simple heuristics.`.
+    <ls_tool>-tooltype        = zpru_if_adf_type_and_constant=>cs_step_type-abap_code.
+
+    APPEND INITIAL LINE TO rt_tool_metadata ASSIGNING <ls_tool>.
+    <ls_tool>-toolname        = `CREATE_WAREHOUSE_TASK`.
+    <ls_tool>-tooldesciption  = `Create Warehouse Task`.
+    <ls_tool>-toolexplanation = `Generate warehouse tasks (putaway/picking) for inbound items.`.
+    <ls_tool>-tooltype        = zpru_if_adf_type_and_constant=>cs_step_type-abap_code.
   ENDMETHOD.
 ENDCLASS.
 
@@ -555,6 +642,37 @@ CLASS lcl_adf_syst_prompt_provider IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD set_format_guidelines.
+    APPEND INITIAL LINE TO rt_format_guidelines ASSIGNING FIELD-SYMBOL(<ls_format_guidelines>).
+    <ls_format_guidelines>-formatguidelinename = `NO_MARKDOWN_WRAPPERS`.
+    <ls_format_guidelines>-formatguideline     = `Return raw JSON or ABAP structures only. Do not include triple backticks, fenced codeblocks, or explanatory text.`.
+
+    APPEND INITIAL LINE TO rt_format_guidelines ASSIGNING <ls_format_guidelines>.
+    <ls_format_guidelines>-formatguidelinename = `VALID_JSON_ONLY`.
+    <ls_format_guidelines>-formatguideline     = `When JSON is requested, return strictly valid JSON. If you cannot produce valid JSON that matches the schema, return a single-key error object: {"__error__":"reason"}.`.
+
+    APPEND INITIAL LINE TO rt_format_guidelines ASSIGNING <ls_format_guidelines>.
+    <ls_format_guidelines>-formatguidelinename = `STRICT_SCHEMA_ADHERENCE`.
+    <ls_format_guidelines>-formatguideline     = `Do not add fields not defined in the provided schema. Use the exact field names and types required by the schema.`.
+
+    APPEND INITIAL LINE TO rt_format_guidelines ASSIGNING <ls_format_guidelines>.
+    <ls_format_guidelines>-formatguidelinename = `NO_CONVERSATIONAL_TEXT`.
+    <ls_format_guidelines>-formatguideline     = `Do not prepend or append conversational phrases ("Here is...", "I think", apologies, or guidance). Output must be the data only.`.
+
+    APPEND INITIAL LINE TO rt_format_guidelines ASSIGNING <ls_format_guidelines>.
+    <ls_format_guidelines>-formatguidelinename = `UNITS_AND_NORMALIZATION`.
+    <ls_format_guidelines>-formatguideline     = `Use canonical units: currency = USD, weight unit = KG, volume unit = M3. Normalize numeric formats (no thousands separators).`.
+
+    APPEND INITIAL LINE TO rt_format_guidelines ASSIGNING <ls_format_guidelines>.
+    <ls_format_guidelines>-formatguidelinename = `MASK_SENSITIVE`.
+    <ls_format_guidelines>-formatguideline     = `Mask or omit any sensitive personal data (tax ids, bank account numbers) unless explicit permission is given.`.
+
+    APPEND INITIAL LINE TO rt_format_guidelines ASSIGNING <ls_format_guidelines>.
+    <ls_format_guidelines>-formatguidelinename = `ERROR_FORMAT`.
+    <ls_format_guidelines>-formatguideline     = `On validation or extraction errors, return a concise machine-readable summary under key \"__error__\" and optionally a \"__details__\" array with field-level issues.`.
+
+    APPEND INITIAL LINE TO rt_format_guidelines ASSIGNING <ls_format_guidelines>.
+    <ls_format_guidelines>-formatguidelinename = `LITERAL_FIELD_VALUES`.
+    <ls_format_guidelines>-formatguideline     = `When a schema field expects a string, return string values (no null unless allowed). For date fields use YYYY-MM-DD if schema accepts ISO dates.`.
   ENDMETHOD.
 
   METHOD set_prompt_restrictions.
