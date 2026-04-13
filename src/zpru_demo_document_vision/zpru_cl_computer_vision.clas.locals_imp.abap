@@ -679,6 +679,35 @@ CLASS lcl_adf_syst_prompt_provider IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD set_reasoning_step.
+    APPEND INITIAL LINE TO rt_reasoning_step ASSIGNING FIELD-SYMBOL(<ls_step>).
+    <ls_step>-reasoningstepname        = `EXTRACT_STRUCTURED_FIELDS`.
+    <ls_step>-reasoningstepquestion    = `Can the document be parsed into header and item structures matching the CMR schema?`.
+    <ls_step>-reasoninginstruction     = `Identify header blocks and item lines using OCR output; normalize dates to YYYY-MM-DD and units to USD/KG/M3. If fields are ambiguous, mark them as null and continue.`.
+    <ls_step>-reasoningstepismandatory = abap_true.
+
+    APPEND INITIAL LINE TO rt_reasoning_step ASSIGNING <ls_step>.
+    <ls_step>-reasoningstepname        = `NORMALIZE_UNITS_AND_NUMBERS`.
+    <ls_step>-reasoningstepquestion    = `Are currency, weight and volume values present and normalized to canonical units?`.
+    <ls_step>-reasoninginstruction     = `Convert currency to USD, weights to KG, volume to M3. Remove thousands separators and ensure numeric fields are numeric; if conversion impossible, flag as finding.`.
+    <ls_step>-reasoningstepismandatory = abap_true.
+
+    APPEND INITIAL LINE TO rt_reasoning_step ASSIGNING <ls_step>.
+    <ls_step>-reasoningstepname        = `CLASSIFY_DANGEROUS_GOODS`.
+    <ls_step>-reasoningstepquestion    = `Do any items indicate dangerous goods via hazard class, UN number, or free-text heuristics?`.
+    <ls_step>-reasoninginstruction     = `Check explicit hazard class/UN fields first; then apply text heuristics (e.g., FLAMM, EXPLOS, POISON). Emit alerts for any suspect items.`.
+    <ls_step>-reasoningstepismandatory = abap_true.
+
+    APPEND INITIAL LINE TO rt_reasoning_step ASSIGNING <ls_step>.
+    <ls_step>-reasoningstepname        = `VALIDATE_MANDATORY_FIELDS`.
+    <ls_step>-reasoningstepquestion    = `Are mandatory header fields present (sender, consignee, takingoverdate, deliveryplace)?`.
+    <ls_step>-reasoninginstruction     = `Verify presence and format of required fields; create findings entries for missing or malformed values and include remediation suggestions.`.
+    <ls_step>-reasoningstepismandatory = abap_true.
+
+    APPEND INITIAL LINE TO rt_reasoning_step ASSIGNING <ls_step>.
+    <ls_step>-reasoningstepname        = `OUTPUT_JSON_SCHEMA_CHECK`.
+    <ls_step>-reasoningstepquestion    = `Does the final JSON match the provided schema and remain strictly valid JSON?`.
+    <ls_step>-reasoninginstruction     = `Ensure output adheres to schema: required arrays/objects exist, types match, and no extra fields are added. If validation fails, return {"__error__":"reason"}.`.
+    <ls_step>-reasoningstepismandatory = abap_true.
   ENDMETHOD.
 
   METHOD set_technical_rules.
