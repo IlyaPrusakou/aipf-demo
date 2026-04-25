@@ -80,7 +80,7 @@ INTERFACE zpru_if_computer_vision
                   absolute_name TYPE string VALUE `\INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_FIND_STORAGE_BIN_REQUEST`,
                 END OF find_storage_bin,
                 BEGIN OF create_warehouse_task,
-                  absolute_name TYPE string VALUE `\INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_CREATE_WAREHOUSE_TASK_REQUEST`,
+                  absolute_name TYPE string VALUE `\INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_CREATE_WHSE_TASK_REQUEST`,
                 END OF create_warehouse_task,
               END OF cs_input_tool_structure.
 

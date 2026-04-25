@@ -1985,7 +1985,7 @@ CLASS lcl_adf_schema_provider IMPLEMENTATION.
                                    p_name = `\INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_FIND_STORAGE_BIN_REQUEST` ).
       WHEN `CREATE_WAREHOUSE_TASK`.
         ro_structure_schema ?= cl_abap_structdescr=>describe_by_name(
-                                   p_name = `\INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_CREATE_WAREHOUSE_TASK_REQUEST` ).
+                                   p_name = `\INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_CREATE_WHSE_TASK_REQUEST` ).
       WHEN OTHERS.
         RAISE EXCEPTION NEW zpru_cx_agent_core( ).
     ENDCASE.
