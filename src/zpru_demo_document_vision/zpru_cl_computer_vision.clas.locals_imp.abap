@@ -379,7 +379,7 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
     DATA lt_creation_content   TYPE zpru_if_computer_vision=>tt_cmr_create_content.
 
     /ui2/cl_json=>deserialize( EXPORTING json = iv_thinking_output
-                               CHANGING  data = lt_raw_response ).
+                               CHANGING  data = lt_raw_response ). " qqq check how dates transformed
 
     IF lt_raw_response IS INITIAL.
       RETURN.
@@ -397,11 +397,16 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
             LOOP AT <ls_attachment>-cmrheaders ASSIGNING FIELD-SYMBOL(<ls_raw_header>).
               APPEND INITIAL LINE TO lt_header ASSIGNING FIELD-SYMBOL(<ls_header>).
               <ls_header> = CORRESPONDING #( <ls_raw_header> ).
+              TRY.
+                  <ls_header>-cmruuid = cl_system_uuid=>create_uuid_x16_static( ).
+                CATCH cx_uuid_error.
+                  ASSERT 1 = 2.
+              ENDTRY.
 
               LOOP AT <ls_raw_header>-cmritems ASSIGNING FIELD-SYMBOL(<ls_raw_item>).
                 APPEND INITIAL LINE TO lt_items ASSIGNING FIELD-SYMBOL(<ls_item>).
                 <ls_item> = CORRESPONDING #( <ls_raw_item> ).
-                <ls_item>-cmrid = <ls_raw_header>-cmrid.
+                <ls_item>-cmruuid = <ls_header>-cmruuid.
               ENDLOOP.
             ENDLOOP.
           ENDLOOP.
@@ -751,7 +756,7 @@ CLASS lcl_adf_create_cmr IMPLEMENTATION.
       <ls_header_cmrid>-cmrid = lv_next_cmrid_num.
 
       LOOP AT lt_items_all ASSIGNING FIELD-SYMBOL(<ls_item_cmrid>)
-           WHERE cmruuid = <ls_header_cmrid>-cmruuid.
+           WHERE cmruuid = <ls_header_cmrid>-cmruuid. " qqq cmruuid is empty
         <ls_item_cmrid>-cmrid = <ls_header_cmrid>-cmrid.
       ENDLOOP.
 
@@ -764,6 +769,7 @@ CLASS lcl_adf_create_cmr IMPLEMENTATION.
       APPEND INITIAL LINE TO lt_cmr_create_head ASSIGNING FIELD-SYMBOL(<ls_cmr_create_head>).
       <ls_cmr_create_head> = CORRESPONDING #( <ls_header> MAPPING TO ENTITY CHANGING CONTROL ).
       <ls_cmr_create_head>-%cid = '1'.
+      CLEAR <ls_cmr_create_head>-cmruuid.
 
       LOOP AT lt_items_all ASSIGNING FIELD-SYMBOL(<ls_item>)
            WHERE cmruuid = <ls_header>-cmruuid.
@@ -772,6 +778,7 @@ CLASS lcl_adf_create_cmr IMPLEMENTATION.
         APPEND INITIAL LINE TO <ls_cmr_create_item>-%target ASSIGNING FIELD-SYMBOL(<ls_cmr_item_target>).
         <ls_cmr_item_target> = CORRESPONDING #( <ls_item> MAPPING TO ENTITY CHANGING CONTROL ).
         <ls_cmr_item_target>-%cid = lv_item_cid.
+        CLEAR <ls_cmr_item_target>-cmruuid.
 
         lv_item_cid += 1.
       ENDLOOP.
@@ -812,18 +819,27 @@ CLASS lcl_adf_create_cmr IMPLEMENTATION.
 
     APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_key_value>).
     <ls_key_value>-name  = zpru_if_computer_vision=>cs_context_field-cmrheaders-field_name.
+    <ls_key_value>-type  = cl_abap_typedescr=>describe_by_name( p_name = NEW string( ) )->absolute_name.
     <ls_key_value>-value = /ui2/cl_json=>serialize( data     = lt_cmr_header_context
+                                                    hex_as_base64 = abap_false
                                                     compress = abap_true ).
 
     APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING <ls_key_value>.
     <ls_key_value>-name  = zpru_if_computer_vision=>cs_context_field-cmritems-field_name.
+    <ls_key_value>-type  = cl_abap_typedescr=>describe_by_name( p_name = NEW string( ) )->absolute_name.
     <ls_key_value>-value = /ui2/cl_json=>serialize( data     = lt_cmr_item_context
+                                                    hex_as_base64 = abap_false
                                                     compress = abap_true ).
 
     APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING <ls_key_value>.
     <ls_key_value>-name  = zpru_if_computer_vision=>cs_context_field-cmrcreationcontent-field_name.
+    <ls_key_value>-type  = cl_abap_typedescr=>describe_by_name( p_name = NEW string( ) )->absolute_name.
     <ls_key_value>-value = /ui2/cl_json=>serialize( data     = lt_creation_content
+                                                    hex_as_base64 = abap_false
                                                     compress = abap_true ).
+
+    es_output = NEW zpru_tt_key_value( et_key_value_pairs ).
+
   ENDMETHOD.
 ENDCLASS.
 
@@ -1014,7 +1030,6 @@ CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
       ENDIF.
     ENDLOOP.
 
-    " --- Persist alerts ---
     IF lt_alert_rap IS INITIAL.
       RETURN.
     ENDIF.
@@ -1037,11 +1052,15 @@ CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
 
     lt_cmr_alert_context = CORRESPONDING #( lt_alert_create MAPPING FROM ENTITY ).
 
-    " --- Emit output key-value pair ---
     APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv>).
     <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-cmralerts-field_name.
+    <ls_kv>-type  = cl_abap_typedescr=>describe_by_name( p_name = NEW string( ) )->absolute_name.
     <ls_kv>-value = /ui2/cl_json=>serialize( data     = lt_cmr_alert_context
+                                             hex_as_base64 = abap_false
                                              compress = abap_true ).
+
+    es_output = NEW zpru_tt_key_value( et_key_value_pairs ).
+
   ENDMETHOD.
 ENDCLASS.
 
@@ -1562,13 +1581,20 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
 
     APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv>).
     <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-cmrstatus-field_name.
+    <ls_kv>-type  = cl_abap_typedescr=>describe_by_name( p_name = NEW string( ) )->absolute_name.
     <ls_kv>-value = /ui2/cl_json=>serialize( data     = lt_cmr_status
+                                             hex_as_base64 = abap_false
                                              compress = abap_true ).
 
     APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING <ls_kv>.
     <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-cmrfinding-field_name.
+    <ls_kv>-type  = cl_abap_typedescr=>describe_by_name( p_name = NEW string( ) )->absolute_name.
     <ls_kv>-value = /ui2/cl_json=>serialize( data     = lt_findings_out
+                                             hex_as_base64 = abap_false
                                              compress = abap_true ).
+
+    es_output = NEW zpru_tt_key_value( et_key_value_pairs ).
+
   ENDMETHOD.
 ENDCLASS.
 
@@ -1710,13 +1736,20 @@ CLASS lcl_adf_create_inb_delivery IMPLEMENTATION.
 
     APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_key_value>).
     <ls_key_value>-name  = zpru_if_computer_vision=>cs_context_field-inbdeliveryheaders-field_name.
+    <ls_key_value>-type  = cl_abap_typedescr=>describe_by_name( p_name = NEW string( ) )->absolute_name.
     <ls_key_value>-value = /ui2/cl_json=>serialize( data     = lt_inb_delivery_header_ctx
+                                                    hex_as_base64 = abap_false
                                                     compress = abap_true ).
 
     APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING <ls_key_value>.
     <ls_key_value>-name  = zpru_if_computer_vision=>cs_context_field-inbdeliveryitems-field_name.
+    <ls_key_value>-type  = cl_abap_typedescr=>describe_by_name( p_name = NEW string( ) )->absolute_name.
     <ls_key_value>-value = /ui2/cl_json=>serialize( data     = lt_inb_delivery_item_ctx
+                                                    hex_as_base64 = abap_false
                                                     compress = abap_true ).
+
+    es_output = NEW zpru_tt_key_value( et_key_value_pairs ).
+
   ENDMETHOD.
 ENDCLASS.
 
@@ -1774,8 +1807,13 @@ CLASS lcl_adf_find_storage_bin IMPLEMENTATION.
 
     APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv>).
     <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-storagebins-field_name.
+    <ls_kv>-type  = cl_abap_typedescr=>describe_by_name( p_name = NEW string( ) )->absolute_name.
     <ls_kv>-value = /ui2/cl_json=>serialize( data     = lt_storage_bins_out
+                                             hex_as_base64 = abap_false
                                              compress = abap_true ).
+
+    es_output = NEW zpru_tt_key_value( et_key_value_pairs ).
+
   ENDMETHOD.
 ENDCLASS.
 
@@ -1887,8 +1925,13 @@ CLASS lcl_adf_create_warehouse_task IMPLEMENTATION.
 
     APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv>).
     <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-warehousetasks-field_name.
+    <ls_kv>-type  = cl_abap_typedescr=>describe_by_name( p_name = NEW string( ) )->absolute_name.
     <ls_kv>-value = /ui2/cl_json=>serialize( data     = lt_warehouse_tasks_out
+                                             hex_as_base64 = abap_false
                                              compress = abap_true ).
+
+    es_output = NEW zpru_tt_key_value( et_key_value_pairs ).
+
   ENDMETHOD.
 ENDCLASS.
 

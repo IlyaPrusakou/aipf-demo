@@ -74,7 +74,6 @@ CLASS lhc_zr_pru_message IMPLEMENTATION.
                                            iv_environment_uuid    = lv_environment_uuid
                                            iv_is_rap_context      = abap_true
                                  IMPORTING ev_final_response      = DATA(lv_final_response)
-                                 " TODO: variable is assigned but never used (ABAP cleaner)
                                            eo_executed_controller = DATA(lo_executed_controller) ).
 
         CAST zpru_if_agent_base( lo_agent )->get_response_content( EXPORTING iv_final_response = lv_final_response
