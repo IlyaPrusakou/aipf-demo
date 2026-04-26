@@ -429,9 +429,21 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD read_data_4_thinking.
+*   " Example: Provide RAG data for the LLM decision engine
+*   " For document recognition, we pass the input prompt content as context
+    APPEND INITIAL LINE TO cs_decision_log-thinkingsteps ASSIGNING FIELD-SYMBOL(<ls_thinking_step>).
+    <ls_thinking_step>-thinkingstepnumber   = get_last_thinkingstepnumber( cs_decision_log-thinkingsteps ).
+    <ls_thinking_step>-thinkingstepdatetime = get_timestamp( ).
+    <ls_thinking_step>-thinkingstepcontent  = `RAG data prepared for thinking`.
   ENDMETHOD.
 
   METHOD recall_memory.
+*   " Example: Retrieve relevant context from short/long-term memory
+*   " For document recognition, we typically use fresh input data
+    APPEND INITIAL LINE TO cs_decision_log-thinkingsteps ASSIGNING FIELD-SYMBOL(<ls_thinking_step>).
+    <ls_thinking_step>-thinkingstepnumber   = get_last_thinkingstepnumber( cs_decision_log-thinkingsteps ).
+    <ls_thinking_step>-thinkingstepdatetime = get_timestamp( ).
+    <ls_thinking_step>-thinkingstepcontent  = `Memory recall completed`.
   ENDMETHOD.
 
   METHOD set_final_response_content.
@@ -519,12 +531,19 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD set_final_response_metadata.
+*   " Set reasoning trace metadata for the final response
+    cs_reasoning_trace-rationalsummary = 'Document Visual Recognition completed. CMR data extracted, validated, and processed through the warehouse workflow.'.
+    cs_reasoning_trace-confidencescore = `90.00`.
   ENDMETHOD.
 
   METHOD set_model_id.
+*   " Set the LLM model ID for the document recognition
+*   " Replace with actual model endpoint when available
+    rv_model_id = `GEMINI_2.5_FLASH`.
   ENDMETHOD.
 
   METHOD set_result_comment.
+    rv_result_comment = `Document Visual Recognition processing finished`.
   ENDMETHOD.
 ENDCLASS.
 
@@ -546,6 +565,10 @@ CLASS lcl_adf_agent_info_provider IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_free_text.
+    ev_free_text = |This agent is specialized in processing CMR (Convention relative au contrat de transport international de Marchandises par Route) documents. | &&
+                   |It uses multimodal AI to extract structured data from scanned documents, classifies dangerous goods, | &&
+                   |validates mandatory fields, creates inbound delivery records, finds available storage bins, | &&
+                   |and generates warehouse tasks for putaway.|.
   ENDMETHOD.
 
   METHOD prepare_agent_domains.
@@ -604,6 +627,12 @@ CLASS lcl_adf_agent_info_provider IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD set_agent_restrictions.
+    APPEND INITIAL LINE TO rt_agent_restrictions ASSIGNING FIELD-SYMBOL(<ls_restriction>).
+    <ls_restriction>-restrictionname    = `READ_ONLY_ACCESS`.
+    <ls_restriction>-restrictioncontent = `This agent only creates and reads CMR, inbound delivery, and warehouse data. It cannot modify or delete past records.`.
+    APPEND INITIAL LINE TO rt_agent_restrictions ASSIGNING <ls_restriction>.
+    <ls_restriction>-restrictionname    = `NO_FINANCIAL_TRANSACTIONS`.
+    <ls_restriction>-restrictioncontent = `The agent does not process payments, invoices, or financial transactions.`.
   ENDMETHOD.
 
   METHOD set_tool_metadata.
@@ -648,9 +677,22 @@ ENDCLASS.
 
 CLASS lcl_adf_syst_prompt_provider IMPLEMENTATION.
   METHOD set_primary_session_task.
+    rs_primary_session_task-primary_session_task = `Extract structured CMR document data from scanned images and orchestrate the full warehouse workflow: classify dangerous goods, validate fields, create inbound deliveries, find storage bins, and generate warehouse tasks.`.
   ENDMETHOD.
 
   METHOD set_business_rules.
+    APPEND INITIAL LINE TO rt_business_rules ASSIGNING FIELD-SYMBOL(<ls_rule>).
+    <ls_rule>-businessrulename    = `CURRENCY_RULE`.
+    <ls_rule>-businessrulecontent = `Always use USD as currency for cash on delivery amounts.`.
+    APPEND INITIAL LINE TO rt_business_rules ASSIGNING <ls_rule>.
+    <ls_rule>-businessrulename    = `WEIGHT_UNIT_RULE`.
+    <ls_rule>-businessrulecontent = `Use KG as default weight unit and M3 as default volume unit for item dimensions.`.
+    APPEND INITIAL LINE TO rt_business_rules ASSIGNING <ls_rule>.
+    <ls_rule>-businessrulename    = `MANDATORY_FIELDS_RULE`.
+    <ls_rule>-businessrulecontent = `Sender info, consignee info, carrier info, taking-over place, delivery place, and taking-over date are mandatory for each CMR header. Nature of goods is mandatory for each item.`.
+    APPEND INITIAL LINE TO rt_business_rules ASSIGNING <ls_rule>.
+    <ls_rule>-businessrulename    = `DG_COMPLIANCE_RULE`.
+    <ls_rule>-businessrulecontent = `Dangerous goods items must have UN number, hazard class, and packing group filled; otherwise flag as finding.`.
   ENDMETHOD.
 
   METHOD set_format_guidelines.
@@ -688,6 +730,15 @@ CLASS lcl_adf_syst_prompt_provider IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD set_prompt_restrictions.
+    APPEND INITIAL LINE TO rt_prompt_restrictions ASSIGNING FIELD-SYMBOL(<ls_restriction>).
+    <ls_restriction>-promptrestrictionname    = `NO_HALLUCINATION`.
+    <ls_restriction>-promptrestrictioncontent = `Do not invent or hallucinate data. If a field cannot be extracted from the document, leave it null or empty.`.
+    APPEND INITIAL LINE TO rt_prompt_restrictions ASSIGNING <ls_restriction>.
+    <ls_restriction>-promptrestrictionname    = `NO_EXECUTION`.
+    <ls_restriction>-promptrestrictioncontent = `Do not execute code, make changes, or perform any action outside of the tools provided to you.`.
+    APPEND INITIAL LINE TO rt_prompt_restrictions ASSIGNING <ls_restriction>.
+    <ls_restriction>-promptrestrictionname    = `ONLY_STRUCTURED_OUTPUT`.
+    <ls_restriction>-promptrestrictioncontent = `Return only the requested structured data. Do not add any conversational or explanatory text.`.
   ENDMETHOD.
 
   METHOD set_reasoning_step.
@@ -723,9 +774,24 @@ CLASS lcl_adf_syst_prompt_provider IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD set_technical_rules.
+    APPEND INITIAL LINE TO rt_technical_rules ASSIGNING FIELD-SYMBOL(<ls_tech_rule>).
+    <ls_tech_rule>-technicalrulename    = `API_TIMEOUT`.
+    <ls_tech_rule>-technicalrulecontent = `The Gemini API call may take up to 30 seconds. Handle timeout gracefully.`.
+    APPEND INITIAL LINE TO rt_technical_rules ASSIGNING <ls_tech_rule>.
+    <ls_tech_rule>-technicalrulename    = `BASE64_ENCODING`.
+    <ls_tech_rule>-technicalrulecontent = `Images must be Base64-encoded before being sent to Gemini API. Use JPEG format.`.
+    APPEND INITIAL LINE TO rt_technical_rules ASSIGNING <ls_tech_rule>.
+    <ls_tech_rule>-technicalrulename    = `MAX_IMAGE_SIZE`.
+    <ls_tech_rule>-technicalrulecontent = `Each image should not exceed 20 MB after Base64 encoding.`.
   ENDMETHOD.
 
   METHOD set_arbitrary_text.
+    APPEND INITIAL LINE TO rt_arbitrary_text ASSIGNING FIELD-SYMBOL(<ls_arb_text>).
+    <ls_arb_text>-arbitrarytextname    = `AGENT_ORIGIN`.
+    <ls_arb_text>-arbitrarytextcontent = `Developed for SAP S/4HANA warehouse automation scenarios.`.
+    APPEND INITIAL LINE TO rt_arbitrary_text ASSIGNING <ls_arb_text>.
+    <ls_arb_text>-arbitrarytextname    = `COMPLIANCE_NOTE`.
+    <ls_arb_text>-arbitrarytextcontent = `All CMR data processing complies with transport documentation standards (CMR Convention).`.
   ENDMETHOD.
 ENDCLASS.
 
@@ -1965,12 +2031,24 @@ ENDCLASS.
 
 CLASS lcl_adf_tool_info_provider IMPLEMENTATION.
   METHOD get_main_tool_info.
+    rs_main_tool_info-toolname        = is_tool_master_data-toolname.
+    rs_main_tool_info-tooldescription = is_tool_master_data-tooldesciption.
+    rs_main_tool_info-toolexplanation = is_tool_master_data-toolexplanation.
+    rs_main_tool_info-tooltype        = is_tool_master_data-tooltype.
   ENDMETHOD.
 
   METHOD set_tool_parameters.
+    rt_tool_param = VALUE #( BASE rt_tool_param
+      ( parameter_name        = `IS_INPUT`
+        parameter_description = `Input structure for the tool`
+        parameter_type        = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name
+        parameter_is_optional = abap_false ) ).
   ENDMETHOD.
 
   METHOD set_tool_properties.
+    rt_tool_properties = VALUE #( BASE rt_tool_properties
+      ( toolpropertyname  = `EXECUTION_TYPE`
+        toolpropertyvalue = `ABAP` ) ).
   ENDMETHOD.
 ENDCLASS.
 
@@ -2002,5 +2080,9 @@ CLASS lcl_adf_schema_provider IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_input_json_schema.
+    " Return the JSON schema for the tool input
+    " For ABAP-code tools, the schema is derived from the ABAP structure type
+    ro_json_schema ?= cl_abap_structdescr=>describe_by_name(
+      p_name = |\INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_TOOL_INPUT_SCHEMA| ).
   ENDMETHOD.
 ENDCLASS.
