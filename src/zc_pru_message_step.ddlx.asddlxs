@@ -28,6 +28,13 @@ annotate entity zc_pru_message_step with
   Runuuid;
   @UI.hidden: true
   Tooluuid;
+  
+  @EndUserText.label: 'ToolName'
+  @UI.identification: [ { position: 21, label: 'ToolName' } ]
+  @UI.lineItem: [ { position: 21, label: 'ToolName' } ]
+  @UI.selectionField: [ { position: 21 } ]
+  ToolName;  
+  
   @EndUserText.label: 'StepSequence'
   @UI.identification: [ { position: 30, label: 'StepSequence' } ]
   @UI.lineItem: [ { position: 30, label: 'StepSequence' } ]

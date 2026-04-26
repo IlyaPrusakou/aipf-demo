@@ -12,6 +12,7 @@ as projection on zr_pru_message_step
     Queryuuid,
     Runuuid,
     Tooluuid,
+    _tool.AIPF7ToolName as ToolName,
     Stepsequence,
     Stepstatus,
     Stepstartdatetime,
@@ -19,5 +20,6 @@ as projection on zr_pru_message_step
     Stepinputprompt,
     Stepoutputresponse,
     /* Associations */
-    _message : redirected to parent ZC_PRU_MESSAGE
+    _message : redirected to parent ZC_PRU_MESSAGE,
+    _tool    : redirected to ZC_PRU_AGENT_TOOL
 }
