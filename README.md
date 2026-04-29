@@ -2,9 +2,9 @@
 Demo app
 
 Prerequisites:
-1 BTP, on-premise, private cloud system
-2 ADT Tools in Eclipse
-3 abapGit
+1. BTP, on-premise, private cloud system
+2. ADT Tools in Eclipse
+3. abapGit
 
 How to try this demo:
 1. install core framework via abapGit clonning https://github.com/IlyaPrusakou/aipf.git
