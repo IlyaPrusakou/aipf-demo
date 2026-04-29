@@ -7,11 +7,11 @@ Prerequisites:
 3 abapGit
 
 How to try this demo:
-1 install core framework via abapGit clonning https://github.com/IlyaPrusakou/aipf.git
-2 run in ADT for Eclipse class ZPRU_CL_SNRO_INTERVALS to create number range intervals for object 'ZPRU_AXCHD'
-3 run in ADT for Eclipse class ZPRU_CL_TEST_DATA to create agent type entry 'AGTYP1'
-4 install demo agent via abapGit clonning https://github.com/IlyaPrusakou/aipf-demo-visual-recognition.git
-5 run in ADT for Eclipse class ZPRU_CL_DOC_VIS_TEST_DATA to create agent 'DOC_VISUAL_RECOGNITION' and its tools
+1. install core framework via abapGit clonning https://github.com/IlyaPrusakou/aipf.git
+2. run in ADT for Eclipse class ZPRU_CL_SNRO_INTERVALS to create number range intervals for object 'ZPRU_AXCHD'
+3. run in ADT for Eclipse class ZPRU_CL_TEST_DATA to create agent type entry 'AGTYP1'
+4. install demo agent via abapGit clonning https://github.com/IlyaPrusakou/aipf-demo-visual-recognition.git
+5. run in ADT for Eclipse class ZPRU_CL_DOC_VIS_TEST_DATA to create agent 'DOC_VISUAL_RECOGNITION' and its tools
 
 Eventually, you will recieve the following definition of vision recognition agent:
 1. Agent Type Table ZPRU_AGENT_TYPE:
