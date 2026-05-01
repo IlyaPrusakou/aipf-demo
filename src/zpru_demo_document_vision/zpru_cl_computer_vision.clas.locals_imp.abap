@@ -1,99 +1,91 @@
 CLASS lcl_adf_decision_provider IMPLEMENTATION.
+
   METHOD check_authorizations.
     ev_allowed = abap_true.
     RETURN.
   ENDMETHOD.
 
   METHOD process_thinking.
-    " gemini input
-    TYPES: BEGIN OF ts_inline_data,
-             mime_type TYPE string,
-             data      TYPE string, " Base64 string
-           END OF ts_inline_data.
+    DATA(lr_input_payload) = deserialize_input_to_payload( is_input_prompt ).
+    DATA(lv_json_schema)   = build_cmr_json_schema( ).
+    DATA(lr_gemini_payload) = build_gemini_request_payload( io_input_payload = lr_input_payload
+                                                            iv_json_schema  = lv_json_schema ).
 
-    TYPES: BEGIN OF ts_part,
-             text        TYPE string,
-             inline_data TYPE ts_inline_data,
-           END OF ts_part,
+    DATA(lo_http_client) = create_gemini_http_client( ).
+    DATA(lo_http_request) = lo_http_client->get_http_request( ).
+    set_http_headers( lo_http_request ).
 
-           tt_parts TYPE STANDARD TABLE OF ts_part WITH EMPTY KEY.
+    DATA(lv_string_payload) = serialize_payload_to_json( lr_gemini_payload->* ).
+    IF lv_string_payload IS NOT INITIAL.
+      lo_http_request->set_text( i_text = lv_string_payload ).
+    ENDIF.
 
-    TYPES: BEGIN OF ts_content,
-             parts TYPE tt_parts,
-           END OF ts_content,
+    DATA(lv_raw_response) = get_mock_test_response( ).
+    strip_markdown_wrappers( CHANGING cv_response = lv_raw_response ).
 
-           tt_contents TYPE STANDARD TABLE OF ts_content WITH EMPTY KEY.
+    IF lv_raw_response IS NOT INITIAL.
+      ev_thinking_output = lv_raw_response.
+    ENDIF.
 
-    TYPES: BEGIN OF ts_gemini_request,
-             contents TYPE tt_contents,
-           END OF ts_gemini_request.
+    add_execution_plan_step( EXPORTING iv_agentuuid = is_agent-agentuuid
+                                       iv_sequence  = 1
+                                       iv_toolname  = zpru_if_computer_vision=>cs_tools-create_cmr
+                             CHANGING  ct_plan      = et_execution_plan ).
+    add_execution_plan_step( EXPORTING iv_agentuuid = is_agent-agentuuid
+                                       iv_sequence  = 2
+                                       iv_toolname  = zpru_if_computer_vision=>cs_tools-classify_danger_goods
+                             CHANGING  ct_plan      = et_execution_plan ).
+    add_execution_plan_step( EXPORTING iv_agentuuid = is_agent-agentuuid
+                                       iv_sequence  = 3
+                                       iv_toolname  = zpru_if_computer_vision=>cs_tools-validate_cmr
+                             CHANGING  ct_plan      = et_execution_plan ).
+    add_execution_plan_step( EXPORTING iv_agentuuid = is_agent-agentuuid
+                                       iv_sequence  = 4
+                                       iv_toolname  = zpru_if_computer_vision=>cs_tools-create_inb_delivery
+                             CHANGING  ct_plan      = et_execution_plan ).
+    add_execution_plan_step( EXPORTING iv_agentuuid = is_agent-agentuuid
+                                       iv_sequence  = 5
+                                       iv_toolname  = zpru_if_computer_vision=>cs_tools-find_storage_bin
+                             CHANGING  ct_plan      = et_execution_plan ).
+    add_execution_plan_step( EXPORTING iv_agentuuid = is_agent-agentuuid
+                                       iv_sequence  = 6
+                                       iv_toolname  = zpru_if_computer_vision=>cs_tools-create_warehouse_task
+                             CHANGING  ct_plan      = et_execution_plan ).
 
-    " gemini output
-    TYPES: BEGIN OF ts_res_part,
-             text TYPE string,
-           END OF ts_res_part,
-           tt_res_parts TYPE STANDARD TABLE OF ts_res_part WITH EMPTY KEY.
+    ev_langu = sy-langu.
+  ENDMETHOD.
 
-    TYPES: BEGIN OF ts_res_content,
-             parts TYPE tt_res_parts,
-             role  TYPE string,
-           END OF ts_res_content.
-
-    TYPES: BEGIN OF ts_candidate,
-             content       TYPE ts_res_content,
-             finish_reason TYPE string,
-           END OF ts_candidate,
-           tt_candidates TYPE STANDARD TABLE OF ts_candidate WITH EMPTY KEY.
-
-    TYPES: BEGIN OF ts_gemini_response,
-             candidates TYPE tt_candidates,
-           END OF ts_gemini_response.
-
-    DATA lv_gemini_url       TYPE string.
-    DATA lo_http_destination TYPE REF TO if_http_destination.
-    DATA lo_http_client      TYPE REF TO if_web_http_client.
-    DATA ls_abap_payload     TYPE REF TO ts_gemini_request.
-    DATA lv_string_payload   TYPE string.
-*    DATA ls_llm_output       TYPE ts_gemini_response.
-    DATA lr_payload          TYPE REF TO data.
-
-    FIELD-SYMBOLS <ls_payload> TYPE zbp_r_pru_message=>ts_doc_recognition.
-
-    lv_gemini_url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`.
+  METHOD create_gemini_http_client.
+    DATA(lv_url) = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`.
     TRY.
-        lo_http_destination = cl_http_destination_provider=>create_by_url( i_url = lv_gemini_url ).
-        lo_http_client = cl_web_http_client_manager=>create_by_http_destination( i_destination = lo_http_destination ).
-      CATCH cx_http_dest_provider_error
-            cx_web_http_client_error.
+        DATA(lo_destination) = cl_http_destination_provider=>create_by_url( i_url = lv_url ).
+        ro_http_client = cl_web_http_client_manager=>create_by_http_destination(
+                             i_destination = lo_destination ).
+      CATCH cx_http_dest_provider_error cx_web_http_client_error.
         RAISE EXCEPTION NEW zpru_cx_agent_core( ).
     ENDTRY.
+  ENDMETHOD.
 
-    DATA(lo_http_request) = lo_http_client->get_http_request( ).
-
-    lo_http_request->set_header_field( i_name  = 'Content-Type'
+  METHOD set_http_headers.
+    io_http_request->set_header_field( i_name  = 'Content-Type'
                                        i_value = 'application/json' ).
-    lo_http_request->set_header_field( i_name  = 'x-goog-api-key'
+    io_http_request->set_header_field( i_name  = 'x-goog-api-key'
                                        i_value = 'mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm' ).
+  ENDMETHOD.
 
-    CREATE DATA lr_payload TYPE (is_input_prompt-type).
-
-    ASSIGN lr_payload->* TO <ls_payload>.
+  METHOD deserialize_input_to_payload.
+    CREATE DATA ro_payload TYPE (is_input_prompt-type).
+    ASSIGN ro_payload->* TO FIELD-SYMBOL(<ls_data>).
     IF sy-subrc <> 0.
       RAISE EXCEPTION NEW zpru_cx_agent_core( ).
     ENDIF.
+    /ui2/cl_json=>deserialize( EXPORTING json           = is_input_prompt-string_content
+                                         hex_as_base64  = abap_false
+                               CHANGING  data           = <ls_data> ).
+  ENDMETHOD.
 
-    /ui2/cl_json=>deserialize( EXPORTING json = is_input_prompt-string_content
-                                         hex_as_base64 = abap_false
-                               CHANGING  data = <ls_payload> ).
-
-    CREATE DATA ls_abap_payload.
-
-    ASSIGN ls_abap_payload->* TO FIELD-SYMBOL(<ls_abap_payload>).
-    IF sy-subrc <> 0.
-      RETURN.
-    ENDIF.
-
-    DATA(lv_json_schema) =
+  METHOD build_cmr_json_schema.
+    rv_schema =
       |\{| &&
       |  "type": "array",| &&
       |  "items": \{| &&
@@ -162,275 +154,194 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
       |    "required": ["messageid", "attachments"]| &&
       |  \}| &&
       |\}|.
+  ENDMETHOD.
 
-    APPEND INITIAL LINE TO <ls_abap_payload>-contents ASSIGNING FIELD-SYMBOL(<ls_contnent>).
-    APPEND INITIAL LINE TO <ls_contnent>-parts ASSIGNING FIELD-SYMBOL(<ls_part>).
+  METHOD build_gemini_request_payload.
+    CREATE DATA ro_gemini_req.
+    ASSIGN ro_gemini_req->* TO FIELD-SYMBOL(<ls_req>).
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    APPEND INITIAL LINE TO <ls_req>-contents ASSIGNING FIELD-SYMBOL(<ls_content>).
+    APPEND INITIAL LINE TO <ls_content>-parts ASSIGNING FIELD-SYMBOL(<ls_part>).
+
+    add_system_instructions( EXPORTING iv_json_schema = iv_json_schema
+                             CHANGING  cs_part        = <ls_part> ).
+
+    add_attachment_images( EXPORTING io_input_payload = io_input_payload
+                           CHANGING  cs_content       = <ls_content> ).
+  ENDMETHOD.
+
+  METHOD add_system_instructions.
+    cs_part-text = |{ cs_part-text } always use USD as currency, KG as weight and M3 as volume.{ cl_abap_char_utilities=>newline }|.
+    cs_part-text = |{ cs_part-text } always give me output as json according the schema.{ cl_abap_char_utilities=>newline }|.
+    cs_part-text = |{ cs_part-text } For output use this schema: { iv_json_schema }{ cl_abap_char_utilities=>newline }|.
+  ENDMETHOD.
+
+  METHOD add_attachment_images.
+    ASSIGN io_input_payload->* TO FIELD-SYMBOL(<ls_payload>).
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
 
     LOOP AT <ls_payload>-message ASSIGNING FIELD-SYMBOL(<ls_message>).
-
-      <ls_part>-text = |{ <ls_part>-text } always use USD as currency, KG as weight and M3 as volume.{ cl_abap_char_utilities=>newline }|.
-      <ls_part>-text = |{ <ls_part>-text } always give me output as json according the schema.{ cl_abap_char_utilities=>newline }|.
-      <ls_part>-text = |{ <ls_part>-text } For output use this schema: { lv_json_schema }{ cl_abap_char_utilities=>newline }|.
-
       LOOP AT <ls_payload>-attachment ASSIGNING FIELD-SYMBOL(<ls_attachment>)
            WHERE messageid = <ls_message>-messageid.
-        DATA(lv_image_base64) = cl_web_http_utility=>encode_x_base64( unencoded = <ls_attachment>-attachment ).
+        DATA(lv_image_base64) = cl_web_http_utility=>encode_x_base64(
+                                    unencoded = <ls_attachment>-attachment ).
 
-        APPEND INITIAL LINE TO <ls_contnent>-parts ASSIGNING <ls_part>.
+        APPEND INITIAL LINE TO cs_content-parts ASSIGNING FIELD-SYMBOL(<ls_part>).
         <ls_part>-inline_data-mime_type = 'image/jpeg'.
         <ls_part>-inline_data-data      = lv_image_base64.
       ENDLOOP.
     ENDLOOP.
+  ENDMETHOD.
 
-    lv_string_payload = /ui2/cl_json=>serialize( data        = ls_abap_payload
-                                                 hex_as_base64 = abap_false
-                                                 pretty_name = /ui2/cl_json=>pretty_mode-low_case
-                                                 compress    = abap_true ).
+  METHOD serialize_payload_to_json.
+    rv_json = /ui2/cl_json=>serialize( data          = is_payload
+                                       hex_as_base64 = abap_false
+                                       pretty_name   = /ui2/cl_json=>pretty_mode-low_case
+                                       compress      = abap_true ).
+  ENDMETHOD.
 
-    IF lv_string_payload IS INITIAL.
-      RETURN.
-    ENDIF.
+  METHOD get_mock_test_response.
+    rv_response =
+      |[| &&
+      |  \{| &&
+      |    "messageid": "CMR-20260314-001",| &&
+      |    "attachments": [| &&
+      |      \{| &&
+      |        "cmrheaders": [| &&
+      |          \{| &&
+      |            "cmrid": "",| &&
+      |            "senderinfo": "Sender LTD",| &&
+      |            "consigneeinfo": "Biedronka LTD",| &&
+      |            "deliveryplace": "Wrocław",| &&
+      |            "takingoverplace": "Warsaw",| &&
+      |            "takingoverdate": "14/03/2026",| &&
+      |            "carrierinfo": "DPD Polska",| &&
+      |            "successivecarrier": "Biedronka Express",| &&
+      |            "carrierreservice": null,| &&
+      |            "senderinstruction": "spread into markets ASAP",| &&
+      |            "cashondelivery": 1344,| &&
+      |            "currency": "USD",| &&
+      |            "establishedplace": "Wrocław, Biskupin",| &&
+      |            "establisheddate": "31/03/2026",| &&
+      |            "createdby": null,| &&
+      |            "createdat": null,| &&
+      |            "lastchangedby": null,| &&
+      |            "lastchangedat": null,| &&
+      |            "cmritems": [| &&
+      |              \{| &&
+      |                "itemposition": "prod1",| &&
+      |                "marksnumbers": "prod1",| &&
+      |                "packagecount": 14,| &&
+      |                "packingmethod": "box",| &&
+      |                "natureofgoods": "pencils",| &&
+      |                "statisticalnumber": "st-14nr",| &&
+      |                "weightunitfield": "KG",| &&
+      |                "volumeunitfield": "M3",| &&
+      |                "grossweight": 16,| &&
+      |                "volume": 1,| &&
+      |                "unitednationnumber": null,| &&
+      |                "hazardclass": "FLAM",| &&
+      |                "packinggroup": null| &&
+      |              \},| &&
+      |              \{| &&
+      |                "itemposition": "prod2",| &&
+      |                "marksnumbers": "prod2",| &&
+      |                "packagecount": 8,| &&
+      |                "packingmethod": "pallet",| &&
+      |                "natureofgoods": "EXPLOS bananas",| &&
+      |                "statisticalnumber": "st-888nr",| &&
+      |                "weightunitfield": "KG",| &&
+      |                "volumeunitfield": "M3",| &&
+      |                "grossweight": 55,| &&
+      |                "volume": 5,| &&
+      |                "unitednationnumber": null,| &&
+      |                "hazardclass": null,| &&
+      |                "packinggroup": null| &&
+      |              \}| &&
+      |            ]| &&
+      |          \}| &&
+      |        ]| &&
+      |      \}| &&
+      |    ]| &&
+      |  \}| &&
+      |]|.
+  ENDMETHOD.
 
-    lo_http_request->set_text( i_text = lv_string_payload ).
+  METHOD strip_markdown_wrappers.
+    REPLACE FIRST OCCURRENCE OF '```json' IN cv_response WITH ''.
+    REPLACE ALL OCCURRENCES OF '```' IN cv_response WITH ''.
+  ENDMETHOD.
 
-*    TRY.
-*        DATA(lo_response) = lo_http_client->execute( i_method = if_web_http_client=>post ).
-*      CATCH cx_web_http_client_error.
-*        RAISE EXCEPTION NEW zpru_cx_agent_core( ).
-*    ENDTRY.
-*
-*    IF lo_response->get_status( )-code <> `200`.
-*      RAISE EXCEPTION NEW zpru_cx_agent_core( ).
-*    ENDIF.
-*
-*    DATA(lv_gemini_output) = lo_response->get_text( ).
-*
-*    /ui2/cl_json=>deserialize( EXPORTING json = lv_gemini_output
-*                                hex_as_base64 = abap_false
-*                               CHANGING  data = ls_llm_output ).
-*
-*    DATA(lv_raw_response) = VALUE #( ls_llm_output-candidates[ 1 ]-content-parts[ 1 ]-text OPTIONAL ).
-
-    """"""""""""""""""""""""""""""""""""""""""""""""""""""""" testing
-
-    DATA(lv_raw_response) = |[| &&
-    |  \{| &&
-    |    "messageid": "CMR-20260314-001",| &&
-    |    "attachments": [| &&
-    |      \{| &&
-    |        "cmrheaders": [| &&
-    |          \{| &&
-    |            "cmrid": "",| &&
-    |            "senderinfo": "Sender LTD",| &&
-    |            "consigneeinfo": "Biedronka LTD",| &&
-    |            "deliveryplace": "Wrocław",| &&
-    |            "takingoverplace": "Warsaw",| &&
-    |            "takingoverdate": "14/03/2026",| &&
-    |            "carrierinfo": "DPD Polska",| &&
-    |            "successivecarrier": "Biedronka Express",| &&
-    |            "carrierreservice": null,| &&
-    |            "senderinstruction": "spread into markets ASAP",| &&
-    |            "cashondelivery": 1344,| &&
-    |            "currency": "USD",| &&
-    |            "establishedplace": "Wrocław, Biskupin",| &&
-    |            "establisheddate": "31/03/2026",| &&
-    |            "createdby": null,| &&
-    |            "createdat": null,| &&
-    |            "lastchangedby": null,| &&
-    |            "lastchangedat": null,| &&
-    |            "cmritems": [| &&
-    |              \{| &&
-    |                "itemposition": "prod1",| &&
-    |                "marksnumbers": "prod1",| &&
-    |                "packagecount": 14,| &&
-    |                "packingmethod": "box",| &&
-    |                "natureofgoods": "pencils",| &&
-    |                "statisticalnumber": "st-14nr",| &&
-    |                "weightunitfield": "KG",| &&
-    |                "volumeunitfield": "M3",| &&
-    |                "grossweight": 16,| &&
-    |                "volume": 1,| &&
-    |                "unitednationnumber": null,| &&
-    |                "hazardclass": "FLAM",| &&  " QQQ FLAMABLE trigger on hazard class"
-    |                "packinggroup": null| &&
-    |              \},| &&
-    |              \{| &&
-    |                "itemposition": "prod2",| &&
-    |                "marksnumbers": "prod2",| &&
-    |                "packagecount": 8,| &&
-    |                "packingmethod": "pallet",| &&
-    |                "natureofgoods": "EXPLOS bananas",| && " QQQ EPLOSIVE trigger on nature of goods"
-    |                "statisticalnumber": "st-888nr",| &&
-    |                "weightunitfield": "KG",| &&
-    |                "volumeunitfield": "M3",| &&
-    |                "grossweight": 55,| &&
-    |                "volume": 5,| &&
-    |                "unitednationnumber": null,| &&
-    |                "hazardclass": null,| &&
-    |                "packinggroup": null| &&
-    |              \}| &&
-    |            ]| &&
-    |          \}| &&
-    |        ]| &&
-    |      \}| &&
-    |    ]| &&
-    |  \}| &&
-    |]|.
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""" testing
-    REPLACE FIRST OCCURRENCE OF '```json' IN lv_raw_response WITH ''.
-    REPLACE ALL OCCURRENCES OF '```' IN lv_raw_response WITH ''.
-
-    IF lv_raw_response IS INITIAL.
-      RETURN.
-    ENDIF.
-
-    ev_thinking_output = lv_raw_response.
-
-    APPEND INITIAL LINE TO et_execution_plan ASSIGNING FIELD-SYMBOL(<ls_execution_plan>).
-    <ls_execution_plan>-agentuuid = is_agent-agentuuid.
-    <ls_execution_plan>-sequence  = 1.
-    <ls_execution_plan>-toolname  = zpru_if_computer_vision=>cs_tools-create_cmr.
-
-    APPEND INITIAL LINE TO et_execution_plan ASSIGNING <ls_execution_plan>.
-    <ls_execution_plan>-agentuuid = is_agent-agentuuid.
-    <ls_execution_plan>-sequence  = 2.
-    <ls_execution_plan>-toolname  = zpru_if_computer_vision=>cs_tools-classify_danger_goods.
-
-    APPEND INITIAL LINE TO et_execution_plan ASSIGNING <ls_execution_plan>.
-    <ls_execution_plan>-agentuuid = is_agent-agentuuid.
-    <ls_execution_plan>-sequence  = 3.
-    <ls_execution_plan>-toolname  = zpru_if_computer_vision=>cs_tools-validate_cmr.
-
-    APPEND INITIAL LINE TO et_execution_plan ASSIGNING <ls_execution_plan>.
-    <ls_execution_plan>-agentuuid = is_agent-agentuuid.
-    <ls_execution_plan>-sequence  = 4.
-    <ls_execution_plan>-toolname  = zpru_if_computer_vision=>cs_tools-create_inb_delivery.
-
-    APPEND INITIAL LINE TO et_execution_plan ASSIGNING <ls_execution_plan>.
-    <ls_execution_plan>-agentuuid = is_agent-agentuuid.
-    <ls_execution_plan>-sequence  = 5.
-    <ls_execution_plan>-toolname  = zpru_if_computer_vision=>cs_tools-find_storage_bin.
-
-    APPEND INITIAL LINE TO et_execution_plan ASSIGNING <ls_execution_plan>.
-    <ls_execution_plan>-agentuuid = is_agent-agentuuid.
-    <ls_execution_plan>-sequence  = 6.
-    <ls_execution_plan>-toolname  = zpru_if_computer_vision=>cs_tools-create_warehouse_task.
-
-    ev_langu = sy-langu.
+  METHOD add_execution_plan_step.
+    APPEND INITIAL LINE TO ct_plan ASSIGNING FIELD-SYMBOL(<ls_plan>).
+    <ls_plan>-agentuuid = iv_agentuuid.
+    <ls_plan>-sequence  = iv_sequence.
+    <ls_plan>-toolname  = iv_toolname.
   ENDMETHOD.
 
   METHOD prepare_first_tool_input.
-    TYPES: BEGIN OF ts_items,
-             itemposition       TYPE n LENGTH 4,
-             marksnumbers       TYPE char100,
-             packagecount       TYPE int4,
-             packingmethod      TYPE char100,
-             natureofgoods      TYPE char100,
-             statisticalnumber  TYPE char20,
-             weightunitfield    TYPE msehi,
-             volumeunitfield    TYPE msehi,
-             grossweight        TYPE p LENGTH 7 DECIMALS 3,
-             volume             TYPE p LENGTH 7 DECIMALS 3,
-             unitednationnumber TYPE char10,
-             hazardclass        TYPE char5,
-             packinggroup       TYPE char10,
-           END OF ts_items,
-
-           tt_items TYPE STANDARD TABLE OF ts_items WITH EMPTY KEY.
-
-    TYPES: BEGIN OF ts_headers,
-             cmrid             TYPE char10,
-             senderinfo        TYPE char255,
-             consigneeinfo     TYPE char255,
-             deliveryplace     TYPE char100,
-             takingoverplace   TYPE char100,
-             takingoverdate    TYPE dats,
-             carrierinfo       TYPE char255,
-             successivecarrier TYPE char255,
-             carrierreservice  TYPE char255,
-             senderinstruction TYPE char255,
-             cashondelivery    TYPE p LENGTH 8 DECIMALS 2,
-             currency          TYPE waers_curc,
-             establishedplace  TYPE char100,
-             establisheddate   TYPE dats,
-             createdby         TYPE char12,
-             createdat         TYPE timestampl,
-             lastchangedby     TYPE char12,
-             lastchangedat     TYPE timestampl,
-             cmritems          TYPE tt_items,
-           END OF ts_headers,
-
-           tt_headers TYPE STANDARD TABLE OF ts_headers WITH EMPTY KEY.
-
-    TYPES: BEGIN OF ts_attachment,
-             cmrheaders TYPE tt_headers,
-           END OF ts_attachment,
-
-           tt_attachments TYPE STANDARD TABLE OF ts_attachment WITH EMPTY KEY.
-
-    TYPES: BEGIN OF ts_response,
-             messageid   TYPE char32,
-             attachments TYPE tt_attachments,
-           END OF ts_response,
-
-           tt_response_root TYPE STANDARD TABLE OF ts_response WITH EMPTY KEY.
-
-    DATA lt_raw_response       TYPE tt_response_root.
-    DATA ls_cmr_create_request TYPE zpru_if_computer_vision=>ts_cmr_create_request.
-    DATA lt_header             TYPE STANDARD TABLE OF zpru_cmr_header WITH EMPTY KEY.
-    DATA lt_items              TYPE STANDARD TABLE OF zpru_cmr_item WITH EMPTY KEY.
-    DATA lt_creation_content   TYPE zpru_if_computer_vision=>tt_cmr_create_content.
-
-    /ui2/cl_json=>deserialize( EXPORTING json = iv_thinking_output
-                                         hex_as_base64 = abap_false
-                               CHANGING  data = lt_raw_response ). " qqq check how dates transformed
-
+    DATA(lt_raw_response) = parse_thinking_output_to_cmr_response( iv_thinking_output ).
     IF lt_raw_response IS INITIAL.
       RETURN.
     ENDIF.
 
     CASE is_first_tool-toolname.
       WHEN `CREATE_CMR`.
+        DATA(lt_creation_content) = map_response_to_creation_content( lt_raw_response ).
 
-        LOOP AT lt_raw_response ASSIGNING FIELD-SYMBOL(<ls_message>).
+        DATA(ls_cmr_create_request) = VALUE zpru_if_computer_vision=>ts_cmr_create_request(
+            cmrcreationcontent = /ui2/cl_json=>serialize( data          = lt_creation_content
+                                                          hex_as_base64 = abap_false ) ).
 
-          APPEND INITIAL LINE TO lt_creation_content ASSIGNING FIELD-SYMBOL(<ls_cmrcreationrequest>).
-          <ls_cmrcreationrequest>-message = <ls_message>-messageid.
-
-          LOOP AT <ls_message>-attachments ASSIGNING FIELD-SYMBOL(<ls_attachment>).
-            LOOP AT <ls_attachment>-cmrheaders ASSIGNING FIELD-SYMBOL(<ls_raw_header>).
-              APPEND INITIAL LINE TO lt_header ASSIGNING FIELD-SYMBOL(<ls_header>).
-              <ls_header> = CORRESPONDING #( <ls_raw_header> ).
-              TRY.
-                  <ls_header>-cmruuid = cl_system_uuid=>create_uuid_x16_static( ).
-                CATCH cx_uuid_error.
-                  ASSERT 1 = 2.
-              ENDTRY.
-
-              LOOP AT <ls_raw_header>-cmritems ASSIGNING FIELD-SYMBOL(<ls_raw_item>).
-                APPEND INITIAL LINE TO lt_items ASSIGNING FIELD-SYMBOL(<ls_item>).
-                <ls_item> = CORRESPONDING #( <ls_raw_item> ).
-                <ls_item>-cmruuid = <ls_header>-cmruuid.
-              ENDLOOP.
-            ENDLOOP.
-          ENDLOOP.
-          <ls_cmrcreationrequest>-cmrheaders = lt_header.
-          <ls_cmrcreationrequest>-cmritems   = lt_items.
-
-        ENDLOOP.
-
-        ls_cmr_create_request-cmrcreationcontent = /ui2/cl_json=>serialize( data = lt_creation_content
-                                                                            hex_as_base64 = abap_false ).
-
-        er_first_tool_input = NEW zpru_if_computer_vision=>ts_cmr_create_request( ls_cmr_create_request ).
+        er_first_tool_input = NEW zpru_if_computer_vision=>ts_cmr_create_request(
+                                  ls_cmr_create_request ).
       WHEN OTHERS.
         RAISE EXCEPTION NEW zpru_cx_agent_core( ).
     ENDCASE.
   ENDMETHOD.
 
+  METHOD parse_thinking_output_to_cmr_response.
+    /ui2/cl_json=>deserialize( EXPORTING json           = iv_thinking_output
+                                         hex_as_base64  = abap_false
+                               CHANGING  data           = rt_response ).
+  ENDMETHOD.
+
+  METHOD map_response_to_creation_content.
+    DATA lt_header TYPE STANDARD TABLE OF zpru_cmr_header WITH EMPTY KEY.
+    DATA lt_items  TYPE STANDARD TABLE OF zpru_cmr_item WITH EMPTY KEY.
+
+    LOOP AT it_response ASSIGNING FIELD-SYMBOL(<ls_message>).
+      APPEND INITIAL LINE TO rt_content ASSIGNING FIELD-SYMBOL(<ls_content>).
+      <ls_content>-message = <ls_message>-messageid.
+
+      LOOP AT <ls_message>-attachments ASSIGNING FIELD-SYMBOL(<ls_attachment>).
+        LOOP AT <ls_attachment>-cmrheaders ASSIGNING FIELD-SYMBOL(<ls_raw_header>).
+          APPEND INITIAL LINE TO lt_header ASSIGNING FIELD-SYMBOL(<ls_header>).
+          <ls_header> = CORRESPONDING #( <ls_raw_header> ).
+          TRY.
+              <ls_header>-cmruuid = cl_system_uuid=>create_uuid_x16_static( ).
+            CATCH cx_uuid_error.
+              ASSERT 1 = 2.
+          ENDTRY.
+
+          LOOP AT <ls_raw_header>-cmritems ASSIGNING FIELD-SYMBOL(<ls_raw_item>).
+            APPEND INITIAL LINE TO lt_items ASSIGNING FIELD-SYMBOL(<ls_item>).
+            <ls_item> = CORRESPONDING #( <ls_raw_item> ).
+            <ls_item>-cmruuid = <ls_header>-cmruuid.
+          ENDLOOP.
+        ENDLOOP.
+      ENDLOOP.
+      <ls_content>-cmrheaders = lt_header.
+      <ls_content>-cmritems   = lt_items.
+    ENDLOOP.
+  ENDMETHOD.
+
   METHOD read_data_4_thinking.
-*   " Example: Provide RAG data for the LLM decision engine
-*   " For document recognition, we pass the input prompt content as context
     APPEND INITIAL LINE TO cs_decision_log-thinkingsteps ASSIGNING FIELD-SYMBOL(<ls_thinking_step>).
     <ls_thinking_step>-thinkingstepnumber   = get_last_thinkingstepnumber( cs_decision_log-thinkingsteps ).
     <ls_thinking_step>-thinkingstepdatetime = get_timestamp( ).
@@ -438,8 +349,6 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD recall_memory.
-*   " Example: Retrieve relevant context from short/long-term memory
-*   " For document recognition, we typically use fresh input data
     APPEND INITIAL LINE TO cs_decision_log-thinkingsteps ASSIGNING FIELD-SYMBOL(<ls_thinking_step>).
     <ls_thinking_step>-thinkingstepnumber   = get_last_thinkingstepnumber( cs_decision_log-thinkingsteps ).
     <ls_thinking_step>-thinkingstepdatetime = get_timestamp( ).
@@ -447,18 +356,41 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD set_final_response_content.
-    DATA lo_axc_service        TYPE REF TO zpru_if_axc_service.
-    DATA lt_axc_head           TYPE zpru_if_axc_type_and_constant=>tt_axc_head.
-    DATA lt_axc_query          TYPE zpru_if_axc_type_and_constant=>tt_axc_query.
-    DATA lt_axc_steps          TYPE zpru_if_axc_type_and_constant=>tt_axc_step.
-    DATA ls_doc_recognition    TYPE zbp_r_pru_message=>ts_doc_recognition.
-    DATA ls_recognition_output TYPE zbp_r_pru_message=>ts_recognition_output.
+    DATA(lo_axc_service) = get_axc_service_instance( ).
+    DATA: lt_axc_head  TYPE zpru_if_axc_type_and_constant=>tt_axc_head,
+          lt_axc_query TYPE zpru_if_axc_type_and_constant=>tt_axc_query,
+          lt_axc_steps TYPE zpru_if_axc_type_and_constant=>tt_axc_step.
 
-    lo_axc_service ?= zpru_cl_agent_service_mngr=>get_service( iv_service = `ZPRU_IF_AXC_SERVICE`
-                                                               iv_context = zpru_if_agent_frw=>cs_context-standard ).
+    read_execution_data( EXPORTING iv_run_uuid       = iv_run_uuid
+                                   iv_query_uuid     = iv_query_uuid
+                                   io_axc_service   = lo_axc_service
+                         IMPORTING et_axc_head       = lt_axc_head
+                                   et_axc_query      = lt_axc_query
+                                   et_axc_steps      = lt_axc_steps ).
 
-    " Read run head by run UUID
-    lo_axc_service->read_header(
+    DATA(ls_recognition_output) = VALUE zbp_r_pru_message=>ts_recognition_output( ).
+    assign_runtime_to_messages( EXPORTING io_controller         = io_controller
+                                          it_axc_head           = lt_axc_head
+                                          it_axc_query          = lt_axc_query
+                                          it_axc_steps          = lt_axc_steps
+                                CHANGING  cs_recognition_output = ls_recognition_output ).
+
+    cs_final_response_body-responsecontent = /ui2/cl_json=>serialize( data          = ls_recognition_output
+                                                                       hex_as_base64 = abap_false ).
+    cs_final_response_body-type = `\CLASS=ZBP_R_PRU_MESSAGE\TYPE=TS_RECOGNITION_OUTPUT`.
+
+    append_freshest_context( EXPORTING io_controller = io_controller
+                             CHANGING  cs_final_body = cs_final_response_body ).
+  ENDMETHOD.
+
+  METHOD get_axc_service_instance.
+    ro_axc_service ?= zpru_cl_agent_service_mngr=>get_service(
+                          iv_service = `ZPRU_IF_AXC_SERVICE`
+                          iv_context = zpru_if_agent_frw=>cs_context-standard ).
+  ENDMETHOD.
+
+  METHOD read_execution_data.
+    io_axc_service->read_header(
       EXPORTING it_head_read_k = VALUE #( ( runuuid = iv_run_uuid
                                             control = VALUE #( runuuid          = abap_true
                                                                runid            = abap_true
@@ -466,10 +398,9 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
                                                                userid           = abap_true
                                                                runstartdatetime = abap_true
                                                                runenddatetime   = abap_true ) ) )
-      IMPORTING et_axc_head    = lt_axc_head ).
+      IMPORTING et_axc_head    = et_axc_head ).
 
-    " Read specific query by query UUID
-    lo_axc_service->read_query(
+    io_axc_service->read_query(
       EXPORTING it_query_read_k = VALUE #( ( queryuuid = iv_query_uuid
                                              control   = VALUE #( runuuid             = abap_true
                                                                   querynumber         = abap_true
@@ -481,10 +412,9 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
                                                                   queryinputprompt    = abap_true
                                                                   querydecisionlog    = abap_true
                                                                   queryoutputresponse = abap_true ) ) )
-      IMPORTING et_axc_query    = lt_axc_query ).
+      IMPORTING et_axc_query    = et_axc_query ).
 
-    " Read steps by query UUID (read by association)
-    lo_axc_service->rba_step(
+    io_axc_service->rba_step(
       EXPORTING it_rba_step_k = VALUE #( ( queryuuid = iv_query_uuid
                                            control   = VALUE #( stepuuid           = abap_true
                                                                 stepnumber         = abap_true
@@ -497,54 +427,52 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
                                                                 stependdatetime    = abap_true
                                                                 stepinputprompt    = abap_true
                                                                 stepoutputresponse = abap_true ) ) )
-      IMPORTING et_axc_step   = lt_axc_steps ).
+      IMPORTING et_axc_step   = et_axc_steps ).
+  ENDMETHOD.
 
-    " Get message from first input prompt
+  METHOD assign_runtime_to_messages.
+    DATA ls_doc_recognition TYPE zbp_r_pru_message=>ts_doc_recognition.
+
     SORT io_controller->mt_input_output BY number ASCENDING.
     DATA(ls_input_prompt) = VALUE #( io_controller->mt_input_output[ 1 ]-input_prompt OPTIONAL ).
-    /ui2/cl_json=>deserialize( EXPORTING json = ls_input_prompt-string_content
-                                         hex_as_base64 = abap_false
-                               CHANGING  data = ls_doc_recognition ).
+    /ui2/cl_json=>deserialize( EXPORTING json           = ls_input_prompt-string_content
+                                         hex_as_base64  = abap_false
+                               CHANGING  data           = ls_doc_recognition ).
 
-    " Build one runtime entry per message
     LOOP AT ls_doc_recognition-message ASSIGNING FIELD-SYMBOL(<ls_message>).
-      APPEND INITIAL LINE TO ls_recognition_output-agent_execution_runtime ASSIGNING FIELD-SYMBOL(<ls_runtime>).
+      APPEND INITIAL LINE TO cs_recognition_output-agent_execution_runtime
+             ASSIGNING FIELD-SYMBOL(<ls_runtime>).
       <ls_runtime>-message = <ls_message>.
-      <ls_runtime>-run     = CORRESPONDING #( lt_axc_head ).
-      <ls_runtime>-query   = CORRESPONDING #( lt_axc_query ).
-      <ls_runtime>-steps   = CORRESPONDING #( lt_axc_steps ).
+      <ls_runtime>-run     = CORRESPONDING #( it_axc_head ).
+      <ls_runtime>-query   = CORRESPONDING #( it_axc_query ).
+      <ls_runtime>-steps   = CORRESPONDING #( it_axc_steps ).
     ENDLOOP.
+  ENDMETHOD.
 
-    cs_final_response_body-responsecontent = /ui2/cl_json=>serialize( data = ls_recognition_output
-                                                                      hex_as_base64 = abap_false ).
-
-    cs_final_response_body-type            = `\CLASS=ZBP_R_PRU_MESSAGE\TYPE=TS_RECOGNITION_OUTPUT`.
-
+  METHOD append_freshest_context.
     SORT io_controller->mt_input_output BY number DESCENDING.
     DATA(lt_freshest_context) = VALUE #( io_controller->mt_input_output[ 1 ]-key_value_pairs OPTIONAL ).
 
     LOOP AT lt_freshest_context ASSIGNING FIELD-SYMBOL(<ls_context>).
-      APPEND INITIAL LINE TO cs_final_response_body-structureddata ASSIGNING FIELD-SYMBOL(<ls_structureddata>).
+      APPEND INITIAL LINE TO cs_final_body-structureddata ASSIGNING FIELD-SYMBOL(<ls_structureddata>).
       <ls_structureddata>-name  = <ls_context>-name.
       <ls_structureddata>-value = <ls_context>-value.
     ENDLOOP.
   ENDMETHOD.
 
   METHOD set_final_response_metadata.
-*   " Set reasoning trace metadata for the final response
     cs_reasoning_trace-rationalsummary = 'Document Visual Recognition completed. CMR data extracted, validated, and processed through the warehouse workflow.'.
     cs_reasoning_trace-confidencescore = `90.00`.
   ENDMETHOD.
 
   METHOD set_model_id.
-*   " Set the LLM model ID for the document recognition
-*   " Replace with actual model endpoint when available
     rv_model_id = `GEMINI_2.5_FLASH`.
   ENDMETHOD.
 
   METHOD set_result_comment.
     rv_result_comment = `Document Visual Recognition processing finished`.
   ENDMETHOD.
+
 ENDCLASS.
 
 
@@ -553,11 +481,11 @@ ENDCLASS.
 
 
 CLASS lcl_adf_long_memory_provider IMPLEMENTATION.
-
 ENDCLASS.
 
 
 CLASS lcl_adf_agent_info_provider IMPLEMENTATION.
+
   METHOD get_agent_main_info.
     ev_agentname    = `Document Visual Recognition Agent`.
     ev_agentversion = `Version 1.0.0`.
@@ -672,10 +600,12 @@ CLASS lcl_adf_agent_info_provider IMPLEMENTATION.
     <ls_tool>-toolexplanation = `Generate warehouse tasks (putaway/picking) for inbound items.`.
     <ls_tool>-tooltype        = zpru_if_adf_type_and_constant=>cs_step_type-abap_code.
   ENDMETHOD.
+
 ENDCLASS.
 
 
 CLASS lcl_adf_syst_prompt_provider IMPLEMENTATION.
+
   METHOD set_primary_session_task.
     ev_primary_session_task = `Extract structured CMR document data from scanned images and orchestrate the full warehouse workflow: classify dangerous goods, validate fields, create inbound deliveries, find storage bins, and generate warehouse tasks.`.
   ENDMETHOD.
@@ -789,85 +719,125 @@ CLASS lcl_adf_syst_prompt_provider IMPLEMENTATION.
     ev_arbitrarytexttitle   = `AGENT_ORIGIN`.
     ev_arbitrarytext = `Developed for SAP S/4HANA warehouse automation scenarios.`.
   ENDMETHOD.
+
 ENDCLASS.
 
 
 CLASS lcl_adf_create_cmr IMPLEMENTATION.
+
   METHOD execute_code_int.
-    DATA lt_headers_all        TYPE zpru_if_computer_vision=>tt_cmr_header_context.
-    DATA lt_items_all          TYPE zpru_if_computer_vision=>tt_cmr_item_context.
-    DATA lt_cmr_create_head    TYPE TABLE FOR CREATE zr_pru_cmr_header\\zrprucmrheader.
-    DATA lt_cmr_create_item    TYPE TABLE FOR CREATE zr_pru_cmr_header\\zrprucmrheader\_cmritems.
-    DATA lt_cmr_header_context TYPE zpru_if_computer_vision=>tt_cmr_header_context.
-    DATA lt_cmr_item_context   TYPE zpru_if_computer_vision=>tt_cmr_item_context.
-    DATA lt_creation_content   TYPE zpru_if_computer_vision=>tt_cmr_create_content.
+    DATA(lt_creation_content) = deserialize_cmr_creation_input( is_input ).
 
-    FIELD-SYMBOLS <ls_cmr_create> TYPE zpru_if_computer_vision=>ts_cmr_create_request.
-
-    ASSIGN is_input->* TO <ls_cmr_create>.
-    IF sy-subrc <> 0.
-      RAISE EXCEPTION NEW zpru_cx_agent_core( ).
-    ENDIF.
-    /ui2/cl_json=>deserialize( EXPORTING json = <ls_cmr_create>-cmrcreationcontent
-                                         hex_as_base64 = abap_false
-                               CHANGING  data = lt_creation_content ).
+    DATA lt_headers_all TYPE zpru_if_computer_vision=>tt_cmr_header_context.
+    DATA lt_items_all   TYPE zpru_if_computer_vision=>tt_cmr_item_context.
 
     LOOP AT lt_creation_content ASSIGNING FIELD-SYMBOL(<ls_cmrcreationcontent>).
-      lt_headers_all = CORRESPONDING #( BASE ( lt_headers_all ) <ls_cmrcreationcontent>-cmrheaders ).
-      lt_items_all = CORRESPONDING #( BASE ( lt_items_all ) <ls_cmrcreationcontent>-cmritems ).
+      lt_headers_all = CORRESPONDING #( BASE ( lt_headers_all )
+                                        <ls_cmrcreationcontent>-cmrheaders ).
+      lt_items_all = CORRESPONDING #( BASE ( lt_items_all )
+                                      <ls_cmrcreationcontent>-cmritems ).
     ENDLOOP.
 
-    SELECT MAX( cmrid ) FROM zr_pru_cmr_header
-      INTO @DATA(lv_max_cmrid).
+    assign_cmr_ids( CHANGING ct_headers = lt_headers_all
+                             ct_items   = lt_items_all ).
 
-    DATA(lv_next_cmrid_num) = CONV i( lv_max_cmrid ) + 1.
-
-    LOOP AT lt_headers_all ASSIGNING FIELD-SYMBOL(<ls_header_cmrid>).
-      <ls_header_cmrid>-cmrid = lv_next_cmrid_num.
-
-      LOOP AT lt_items_all ASSIGNING FIELD-SYMBOL(<ls_item_cmrid>)
-           WHERE cmruuid = <ls_header_cmrid>-cmruuid. " qqq cmruuid is empty
-        <ls_item_cmrid>-cmrid = <ls_header_cmrid>-cmrid.
-      ENDLOOP.
-
-      lv_next_cmrid_num += 1.
-    ENDLOOP.
-
-    DATA(lv_item_cid) = 1.
-    LOOP AT lt_headers_all ASSIGNING FIELD-SYMBOL(<ls_header>).
-
-      APPEND INITIAL LINE TO lt_cmr_create_head ASSIGNING FIELD-SYMBOL(<ls_cmr_create_head>).
-      <ls_cmr_create_head> = CORRESPONDING #( <ls_header> MAPPING TO ENTITY CHANGING CONTROL ).
-      <ls_cmr_create_head>-%cid = '1'.
-      CLEAR: <ls_cmr_create_head>-cmruuid,
-             <ls_cmr_create_head>-%control-cmruuid.
-      LOOP AT lt_items_all ASSIGNING FIELD-SYMBOL(<ls_item>)
-           WHERE cmruuid = <ls_header>-cmruuid.
-        APPEND INITIAL LINE TO lt_cmr_create_item ASSIGNING FIELD-SYMBOL(<ls_cmr_create_item>).
-        <ls_cmr_create_item>-%cid_ref = '1'.
-        APPEND INITIAL LINE TO <ls_cmr_create_item>-%target ASSIGNING FIELD-SYMBOL(<ls_cmr_item_target>).
-        <ls_cmr_item_target> = CORRESPONDING #( <ls_item> MAPPING TO ENTITY CHANGING CONTROL ).
-        <ls_cmr_item_target>-%cid = lv_item_cid.
-        CLEAR: <ls_cmr_item_target>-cmruuid,
-               <ls_cmr_item_target>-%control-cmruuid.
-
-        lv_item_cid += 1.
-      ENDLOOP.
-    ENDLOOP.
+    DATA(lt_cmr_create_head) = prepare_header_rap_entities( lt_headers_all ).
+    DATA(lt_cmr_create_item) = prepare_item_rap_entities( lt_items_all ).
 
     IF lt_cmr_create_head IS INITIAL.
       RAISE EXCEPTION NEW zpru_cx_agent_core( ).
     ENDIF.
 
+    DATA: lt_cmr_header_context TYPE zpru_if_computer_vision=>tt_cmr_header_context,
+          lt_cmr_item_context   TYPE zpru_if_computer_vision=>tt_cmr_item_context.
+
+    persist_cmr_via_rap( EXPORTING it_create_header = lt_cmr_create_head
+                                   it_create_item   = lt_cmr_create_item
+                         IMPORTING et_mapped_header = lt_cmr_header_context
+                                   et_mapped_item   = lt_cmr_item_context
+                         CHANGING  ev_error_flag    = ev_error_flag ).
+
+    IF ev_error_flag = abap_true.
+      RETURN.
+    ENDIF.
+
+    append_cmr_output_pairs( EXPORTING it_cmr_headers      = lt_cmr_header_context
+                                       it_cmr_items        = lt_cmr_item_context
+                                       it_creation_content  = lt_creation_content
+                             CHANGING  ct_key_value_pairs  = et_key_value_pairs ).
+
+    es_output = NEW zpru_tt_key_value( et_key_value_pairs ).
+  ENDMETHOD.
+
+  METHOD deserialize_cmr_creation_input.
+    FIELD-SYMBOLS <ls_cmr_create> TYPE zpru_if_computer_vision=>ts_cmr_create_request.
+    ASSIGN is_input->* TO <ls_cmr_create>.
+    IF sy-subrc <> 0.
+      RAISE EXCEPTION NEW zpru_cx_agent_core( ).
+    ENDIF.
+
+    /ui2/cl_json=>deserialize( EXPORTING json           = <ls_cmr_create>-cmrcreationcontent
+                                         hex_as_base64  = abap_false
+                               CHANGING  data           = rt_creation ).
+  ENDMETHOD.
+
+  METHOD assign_cmr_ids.
+    SELECT MAX( cmrid ) FROM zr_pru_cmr_header INTO @DATA(lv_max_cmrid).
+    DATA(lv_next_cmrid_num) = CONV i( lv_max_cmrid ) + 1.
+
+    LOOP AT ct_headers ASSIGNING FIELD-SYMBOL(<ls_header>).
+      <ls_header>-cmrid = lv_next_cmrid_num.
+
+      LOOP AT ct_items ASSIGNING FIELD-SYMBOL(<ls_item>)
+           WHERE cmruuid = <ls_header>-cmruuid.
+        <ls_item>-cmrid = <ls_header>-cmrid.
+      ENDLOOP.
+
+      lv_next_cmrid_num += 1.
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD prepare_header_rap_entities.
+    DATA(lv_item_cid) = 1.
+
+    LOOP AT it_headers ASSIGNING FIELD-SYMBOL(<ls_header>).
+      APPEND INITIAL LINE TO rt_create ASSIGNING FIELD-SYMBOL(<ls_entity>).
+      <ls_entity> = CORRESPONDING #( <ls_header> MAPPING TO ENTITY CHANGING CONTROL ).
+      <ls_entity>-%cid = '1'.
+      CLEAR: <ls_entity>-cmruuid,
+             <ls_entity>-%control-cmruuid.
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD prepare_item_rap_entities.
+    DATA(lv_item_cid) = 1.
+
+    LOOP AT it_items ASSIGNING FIELD-SYMBOL(<ls_item>)
+         GROUP BY ( cmruuid = <ls_item>-cmruuid )
+         ASSIGNING FIELD-SYMBOL(<group>).
+      APPEND INITIAL LINE TO rt_create ASSIGNING FIELD-SYMBOL(<ls_create_item>).
+      <ls_create_item>-%cid_ref = '1'.
+
+      LOOP AT GROUP <group> ASSIGNING FIELD-SYMBOL(<ls_item_member>).
+        APPEND INITIAL LINE TO <ls_create_item>-%target ASSIGNING FIELD-SYMBOL(<ls_target>).
+        <ls_target> = CORRESPONDING #( <ls_item_member> MAPPING TO ENTITY CHANGING CONTROL ).
+        <ls_target>-%cid = lv_item_cid.
+        CLEAR: <ls_target>-cmruuid,
+               <ls_target>-%control-cmruuid.
+        lv_item_cid += 1.
+      ENDLOOP.
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD persist_cmr_via_rap.
     MODIFY ENTITIES OF zr_pru_cmr_header
            ENTITY zrprucmrheader
-           CREATE FROM lt_cmr_create_head
+           CREATE FROM it_create_header
            ENTITY zrprucmrheader
            CREATE BY \_cmritems
-           FROM lt_cmr_create_item
+           FROM it_create_item
            MAPPED DATA(ls_mapped)
            FAILED DATA(ls_failed)
-           " TODO: variable is assigned but never used (ABAP cleaner)
            REPORTED DATA(ls_reported).
 
     IF ls_failed IS NOT INITIAL.
@@ -885,54 +855,40 @@ CLASS lcl_adf_create_cmr IMPLEMENTATION.
          ALL FIELDS WITH CORRESPONDING #( ls_mapped-zrprucmritem )
          RESULT DATA(lt_new_cmr_items).
 
-    lt_cmr_header_context = CORRESPONDING #( lt_new_cmr_headers MAPPING FROM ENTITY ).
-    lt_cmr_item_context = CORRESPONDING #( lt_new_cmr_items MAPPING FROM ENTITY ).
-
-    APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_key_value>).
-    <ls_key_value>-name  = zpru_if_computer_vision=>cs_context_field-cmrheaders-field_name.
-    <ls_key_value>-type  = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name.
-    <ls_key_value>-value = /ui2/cl_json=>serialize( data          = lt_cmr_header_context
-                                                    hex_as_base64 = abap_false
-                                                    compress      = abap_true ).
-
-    APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING <ls_key_value>.
-    <ls_key_value>-name  = zpru_if_computer_vision=>cs_context_field-cmritems-field_name.
-    <ls_key_value>-type  = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name.
-    <ls_key_value>-value = /ui2/cl_json=>serialize( data          = lt_cmr_item_context
-                                                    hex_as_base64 = abap_false
-                                                    compress      = abap_true ).
-
-    APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING <ls_key_value>.
-    <ls_key_value>-name  = zpru_if_computer_vision=>cs_context_field-cmrcreationcontent-field_name.
-    <ls_key_value>-type  = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name.
-    <ls_key_value>-value = /ui2/cl_json=>serialize( data          = lt_creation_content
-                                                    hex_as_base64 = abap_false
-                                                    compress      = abap_true ).
-
-    es_output = NEW zpru_tt_key_value( et_key_value_pairs ).
+    et_mapped_header = CORRESPONDING #( lt_new_cmr_headers MAPPING FROM ENTITY ).
+    et_mapped_item   = CORRESPONDING #( lt_new_cmr_items MAPPING FROM ENTITY ).
   ENDMETHOD.
+
+  METHOD append_cmr_output_pairs.
+    APPEND INITIAL LINE TO ct_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv>).
+    <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-cmrheaders-field_name.
+    <ls_kv>-type  = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name.
+    <ls_kv>-value = /ui2/cl_json=>serialize( data          = it_cmr_headers
+                                             hex_as_base64 = abap_false
+                                             compress      = abap_true ).
+
+    APPEND INITIAL LINE TO ct_key_value_pairs ASSIGNING <ls_kv>.
+    <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-cmritems-field_name.
+    <ls_kv>-type  = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name.
+    <ls_kv>-value = /ui2/cl_json=>serialize( data          = it_cmr_items
+                                             hex_as_base64 = abap_false
+                                             compress      = abap_true ).
+
+    APPEND INITIAL LINE TO ct_key_value_pairs ASSIGNING <ls_kv>.
+    <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-cmrcreationcontent-field_name.
+    <ls_kv>-type  = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name.
+    <ls_kv>-value = /ui2/cl_json=>serialize( data          = it_creation_content
+                                             hex_as_base64 = abap_false
+                                             compress      = abap_true ).
+  ENDMETHOD.
+
 ENDCLASS.
 
 
 CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
+
   METHOD execute_code_int.
-    DATA lv_nature_up         TYPE string.
-    DATA lv_is_danger         TYPE abap_bool.
-    DATA lv_reason            TYPE string.
-    DATA lt_alert_rap         TYPE TABLE FOR CREATE zr_pru_cmr_alert\\zrprucmralert.
-    DATA lt_cmr_item_context  TYPE zpru_if_computer_vision=>tt_cmr_item_context.
-    DATA lt_cmr_alert_context TYPE STANDARD TABLE OF zpru_cmr_alert WITH EMPTY KEY.
-
-    FIELD-SYMBOLS <ls_input> TYPE zpru_if_computer_vision=>ts_cmr_classify_req.
-
-    ASSIGN is_input->* TO <ls_input>.
-    IF sy-subrc <> 0.
-      RAISE EXCEPTION NEW zpru_cx_agent_core( ).
-    ENDIF.
-
-    /ui2/cl_json=>deserialize( EXPORTING json          = <ls_input>-cmritems
-                                         hex_as_base64 = abap_false
-                               CHANGING  data          = lt_cmr_item_context ).
+    DATA(lt_cmr_item_context) = deserialize_classify_input( is_input ).
 
     IF lt_cmr_item_context IS INITIAL.
       APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv_empty>).
@@ -941,162 +897,23 @@ CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    DATA(lv_count) = 0.
+    DATA lt_alert_rap TYPE TABLE FOR CREATE zr_pru_cmr_alert\\zrprucmralert.
+    DATA lv_count TYPE i.
+
     LOOP AT lt_cmr_item_context ASSIGNING FIELD-SYMBOL(<ls_item>).
-      CLEAR: lv_is_danger,
-             lv_reason.
-
       lv_count += 1.
+      DATA(lv_is_danger) = abap_false.
+      DATA(lv_reason)    = ``.
 
-      IF <ls_item>-hazardclass IS NOT INITIAL.
-        lv_is_danger = abap_true.
-        lv_reason = |Hazard class { <ls_item>-hazardclass } detected|.
-      ENDIF.
-      IF lv_is_danger = abap_false AND <ls_item>-unitednationnumber IS NOT INITIAL.
-        lv_is_danger = abap_true.
-        lv_reason = |UN number { <ls_item>-unitednationnumber } present|.
-      ENDIF.
-
-      IF lv_is_danger = abap_false.
-        lv_nature_up = to_upper( <ls_item>-natureofgoods ).
-
-        IF lv_nature_up CS 'EXPLOS'.
-          lv_is_danger = abap_true.
-          lv_reason = 'Explosive material detected in nature of goods'.
-        ENDIF.
-
-        IF lv_is_danger = abap_false AND (    lv_nature_up CS 'FLAMMABLE GAS'
-                                           OR lv_nature_up CS 'INFLAMMABLE GAS'
-                                           OR lv_nature_up CS 'LPG'
-                                           OR lv_nature_up CS 'LNG'
-                                           OR lv_nature_up CS 'COMPRESSED GAS'
-                                           OR lv_nature_up CS 'PROPANE'
-                                           OR lv_nature_up CS 'BUTANE'
-                                           OR lv_nature_up CS 'ACETYLENE'
-                                           OR lv_nature_up CS 'HYDROGEN' ).
-          lv_is_danger = abap_true.
-          lv_reason = 'Flammable gas detected in nature of goods'.
-        ENDIF.
-
-        IF lv_is_danger = abap_false AND (    lv_nature_up CS 'FLAMMABLE LIQUID'
-                                           OR lv_nature_up CS 'INFLAMMABLE LIQUID'
-                                           OR lv_nature_up CS 'PETROL'
-                                           OR lv_nature_up CS 'GASOLINE'
-                                           OR lv_nature_up CS 'DIESEL'
-                                           OR lv_nature_up CS 'KEROSENE'
-                                           OR lv_nature_up CS 'ETHANOL'
-                                           OR lv_nature_up CS 'METHANOL'
-                                           OR lv_nature_up CS 'ACETONE'
-                                           OR lv_nature_up CS 'BENZENE'
-                                           OR lv_nature_up CS 'TOLUENE'
-                                           OR lv_nature_up CS 'FUEL OIL' ).
-          lv_is_danger = abap_true.
-          lv_reason = 'Flammable liquid detected in nature of goods'.
-        ENDIF.
-
-        IF lv_is_danger = abap_false AND (    lv_nature_up CS 'FLAMMABLE SOLID'
-                                           OR lv_nature_up CS 'INFLAMMABLE SOLID'
-                                           OR lv_nature_up CS 'PHOSPHORUS'
-                                           OR lv_nature_up CS 'SULPHUR'
-                                           OR lv_nature_up CS 'SULFUR'
-                                           OR lv_nature_up CS 'MAGNESIUM'
-                                           OR lv_nature_up CS 'ALUMINIUM POWDER'
-                                           OR lv_nature_up CS 'ALUMINUM POWDER' ).
-          lv_is_danger = abap_true.
-          lv_reason = 'Flammable solid detected in nature of goods'.
-        ENDIF.
-
-        IF lv_is_danger = abap_false AND (    lv_nature_up CS 'OXIDIS'
-                                           OR lv_nature_up CS 'OXIDIZ'
-                                           OR lv_nature_up CS 'PEROXIDE'
-                                           OR lv_nature_up CS 'PERMANGANATE'
-                                           OR lv_nature_up CS 'CHLORATE'
-                                           OR lv_nature_up CS 'NITRATE'
-                                           OR lv_nature_up CS 'PERCHLORATE' ).
-          lv_is_danger = abap_true.
-          lv_reason = 'Oxidiser/organic peroxide detected in nature of goods'.
-        ENDIF.
-
-        IF lv_is_danger = abap_false AND (    lv_nature_up CS 'TOXIC'
-                                           OR lv_nature_up CS 'POISON'
-                                           OR lv_nature_up CS 'PESTICIDE'
-                                           OR lv_nature_up CS 'HERBICIDE'
-                                           OR lv_nature_up CS 'INSECTICIDE'
-                                           OR lv_nature_up CS 'CYANIDE'
-                                           OR lv_nature_up CS 'ARSENIC'
-                                           OR lv_nature_up CS 'MERCURY'
-                                           OR lv_nature_up CS 'CHLORINE'
-                                           OR lv_nature_up CS 'AMMONIA'
-                                           OR lv_nature_up CS 'FORMALDEHYDE' ).
-          lv_is_danger = abap_true.
-          lv_reason = 'Toxic substance detected in nature of goods'.
-        ENDIF.
-
-        IF lv_is_danger = abap_false AND (    lv_nature_up CS 'INFECTIOUS'
-                                           OR lv_nature_up CS 'PATHOGEN'
-                                           OR lv_nature_up CS 'CLINICAL WASTE'
-                                           OR lv_nature_up CS 'MEDICAL WASTE' ).
-          lv_is_danger = abap_true.
-          lv_reason = 'Infectious substance detected in nature of goods'.
-        ENDIF.
-
-        IF lv_is_danger = abap_false AND (    lv_nature_up CS 'RADIOACT'
-                                           OR lv_nature_up CS 'NUCLEAR'
-                                           OR lv_nature_up CS 'URANIUM'
-                                           OR lv_nature_up CS 'PLUTONIUM'
-                                           OR lv_nature_up CS 'ISOTOPE' ).
-          lv_is_danger = abap_true.
-          lv_reason = 'Radioactive material detected in nature of goods'.
-        ENDIF.
-
-        IF lv_is_danger = abap_false AND (    lv_nature_up CS 'CORROSIVE'
-                                           OR lv_nature_up CS 'ACID'
-                                           OR lv_nature_up CS 'CAUSTIC'
-                                           OR lv_nature_up CS 'SULPHURIC'
-                                           OR lv_nature_up CS 'SULFURIC'
-                                           OR lv_nature_up CS 'HYDROCHLORIC'
-                                           OR lv_nature_up CS 'SODIUM HYDROXIDE'
-                                           OR lv_nature_up CS 'POTASSIUM HYDROXIDE'
-                                           OR lv_nature_up CS 'BLEACH' ).
-          lv_is_danger = abap_true.
-          lv_reason = 'Corrosive substance detected in nature of goods'.
-        ENDIF.
-
-        IF lv_is_danger = abap_false AND (    lv_nature_up CS 'DANGEROUS GOODS'
-                                           OR lv_nature_up CS 'HAZARDOUS'
-                                           OR lv_nature_up CS 'LITHIUM BATTER'
-                                           OR lv_nature_up CS 'DRY ICE'
-                                           OR lv_nature_up CS 'MAGNETIS' ).
-          lv_is_danger = abap_true.
-          lv_reason = 'Hazardous material detected in nature of goods'.
-        ENDIF.
-      ENDIF.
+      classify_single_item( EXPORTING is_item      = <ls_item>
+                            IMPORTING ev_is_danger = lv_is_danger
+                                      ev_reason    = lv_reason ).
 
       IF lv_is_danger = abap_true.
-        APPEND INITIAL LINE TO lt_alert_rap ASSIGNING FIELD-SYMBOL(<ls_alert_rap>).
-        TRY.
-            <ls_alert_rap>-alertuuid = cl_system_uuid=>create_uuid_x16_static( ).
-          CATCH cx_uuid_error.
-        ENDTRY.
-
-        <ls_alert_rap>-%cid          = |ALERT{ lv_count }|.
-        <ls_alert_rap>-cmruuid       = <ls_item>-cmruuid.
-        <ls_alert_rap>-cmrid         = <ls_item>-cmrid.
-        <ls_alert_rap>-cmritemuuid   = <ls_item>-cmritemuuid.
-        <ls_alert_rap>-itemposition  = <ls_item>-itemposition.
-        <ls_alert_rap>-natureofgoods = <ls_item>-natureofgoods.
-        <ls_alert_rap>-alerttype     = 'DANGER_GOODS'.
-        <ls_alert_rap>-alertmessage  = lv_reason.
-
-        <ls_alert_rap>-%control      = VALUE #( alertuuid     = if_abap_behv=>mk-on
-                                                cmruuid       = if_abap_behv=>mk-on
-                                                cmrid         = if_abap_behv=>mk-on
-                                                cmritemuuid   = if_abap_behv=>mk-on
-                                                itemposition  = if_abap_behv=>mk-on
-                                                natureofgoods = if_abap_behv=>mk-on
-                                                alerttype     = if_abap_behv=>mk-on
-                                                alertmessage  = if_abap_behv=>mk-on ).
-
+        DATA(ls_alert) = create_alert_entity( is_item      = <ls_item>
+                                              iv_reason    = lv_reason
+                                              iv_alert_seq = lv_count ).
+        APPEND ls_alert TO lt_alert_rap.
       ENDIF.
     ENDLOOP.
 
@@ -1104,9 +921,262 @@ CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+    DATA(lt_cmr_alert_context) = persist_alerts_via_rap(
+                                     EXPORTING it_alerts    = lt_alert_rap
+                                     CHANGING  ev_error_flag = ev_error_flag ).
+
+    IF ev_error_flag = abap_true.
+      RETURN.
+    ENDIF.
+
+    append_alert_output( EXPORTING it_alerts          = lt_cmr_alert_context
+                         CHANGING  ct_key_value_pairs = et_key_value_pairs ).
+
+    es_output = NEW zpru_tt_key_value( et_key_value_pairs ).
+  ENDMETHOD.
+
+  METHOD deserialize_classify_input.
+    FIELD-SYMBOLS <ls_input> TYPE zpru_if_computer_vision=>ts_cmr_classify_req.
+    ASSIGN is_input->* TO <ls_input>.
+    IF sy-subrc <> 0.
+      RAISE EXCEPTION NEW zpru_cx_agent_core( ).
+    ENDIF.
+
+    /ui2/cl_json=>deserialize( EXPORTING json           = <ls_input>-cmritems
+                                         hex_as_base64  = abap_false
+                               CHANGING  data           = rt_items ).
+  ENDMETHOD.
+
+  METHOD classify_single_item.
+    ev_is_danger = abap_false.
+
+    ev_reason = check_danger_by_hazard_class( is_item-hazardclass ).
+    IF ev_reason IS NOT INITIAL.
+      ev_is_danger = abap_true.
+      RETURN.
+    ENDIF.
+
+    ev_reason = check_danger_by_un_number( is_item-unitednationnumber ).
+    IF ev_reason IS NOT INITIAL.
+      ev_is_danger = abap_true.
+      RETURN.
+    ENDIF.
+
+    DATA(lv_nature_up) = to_upper( is_item-natureofgoods ).
+
+    ev_reason = check_explosive( lv_nature_up ).
+    IF ev_reason IS NOT INITIAL.
+      ev_is_danger = abap_true. RETURN.
+    ENDIF.
+
+    ev_reason = check_flammable_gas( lv_nature_up ).
+    IF ev_reason IS NOT INITIAL.
+      ev_is_danger = abap_true. RETURN.
+    ENDIF.
+
+    ev_reason = check_flammable_liquid( lv_nature_up ).
+    IF ev_reason IS NOT INITIAL.
+      ev_is_danger = abap_true. RETURN.
+    ENDIF.
+
+    ev_reason = check_flammable_solid( lv_nature_up ).
+    IF ev_reason IS NOT INITIAL.
+      ev_is_danger = abap_true. RETURN.
+    ENDIF.
+
+    ev_reason = check_oxidiser( lv_nature_up ).
+    IF ev_reason IS NOT INITIAL.
+      ev_is_danger = abap_true. RETURN.
+    ENDIF.
+
+    ev_reason = check_toxic( lv_nature_up ).
+    IF ev_reason IS NOT INITIAL.
+      ev_is_danger = abap_true. RETURN.
+    ENDIF.
+
+    ev_reason = check_infectious( lv_nature_up ).
+    IF ev_reason IS NOT INITIAL.
+      ev_is_danger = abap_true. RETURN.
+    ENDIF.
+
+    ev_reason = check_radioactive( lv_nature_up ).
+    IF ev_reason IS NOT INITIAL.
+      ev_is_danger = abap_true. RETURN.
+    ENDIF.
+
+    ev_reason = check_corrosive( lv_nature_up ).
+    IF ev_reason IS NOT INITIAL.
+      ev_is_danger = abap_true. RETURN.
+    ENDIF.
+
+    ev_reason = check_hazardous_other( lv_nature_up ).
+    IF ev_reason IS NOT INITIAL.
+      ev_is_danger = abap_true. RETURN.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD check_danger_by_hazard_class.
+    IF iv_hazardclass IS NOT INITIAL.
+      rv_reason = |Hazard class { iv_hazardclass } detected|.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD check_danger_by_un_number.
+    IF iv_un_number IS NOT INITIAL.
+      rv_reason = |UN number { iv_un_number } present|.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD check_explosive.
+    IF iv_nature_up CS 'EXPLOS'.
+      rv_reason = 'Explosive material detected in nature of goods'.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD check_flammable_gas.
+    IF iv_nature_up CS 'FLAMMABLE GAS'
+    OR iv_nature_up CS 'INFLAMMABLE GAS'
+    OR iv_nature_up CS 'LPG'
+    OR iv_nature_up CS 'LNG'
+    OR iv_nature_up CS 'COMPRESSED GAS'
+    OR iv_nature_up CS 'PROPANE'
+    OR iv_nature_up CS 'BUTANE'
+    OR iv_nature_up CS 'ACETYLENE'
+    OR iv_nature_up CS 'HYDROGEN'.
+      rv_reason = 'Flammable gas detected in nature of goods'.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD check_flammable_liquid.
+    IF iv_nature_up CS 'FLAMMABLE LIQUID'
+    OR iv_nature_up CS 'INFLAMMABLE LIQUID'
+    OR iv_nature_up CS 'PETROL'
+    OR iv_nature_up CS 'GASOLINE'
+    OR iv_nature_up CS 'DIESEL'
+    OR iv_nature_up CS 'KEROSENE'
+    OR iv_nature_up CS 'ETHANOL'
+    OR iv_nature_up CS 'METHANOL'
+    OR iv_nature_up CS 'ACETONE'
+    OR iv_nature_up CS 'BENZENE'
+    OR iv_nature_up CS 'TOLUENE'
+    OR iv_nature_up CS 'FUEL OIL'.
+      rv_reason = 'Flammable liquid detected in nature of goods'.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD check_flammable_solid.
+    IF iv_nature_up CS 'FLAMMABLE SOLID'
+    OR iv_nature_up CS 'INFLAMMABLE SOLID'
+    OR iv_nature_up CS 'PHOSPHORUS'
+    OR iv_nature_up CS 'SULPHUR'
+    OR iv_nature_up CS 'SULFUR'
+    OR iv_nature_up CS 'MAGNESIUM'
+    OR iv_nature_up CS 'ALUMINIUM POWDER'
+    OR iv_nature_up CS 'ALUMINUM POWDER'.
+      rv_reason = 'Flammable solid detected in nature of goods'.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD check_oxidiser.
+    IF iv_nature_up CS 'OXIDIS'
+    OR iv_nature_up CS 'OXIDIZ'
+    OR iv_nature_up CS 'PEROXIDE'
+    OR iv_nature_up CS 'PERMANGANATE'
+    OR iv_nature_up CS 'CHLORATE'
+    OR iv_nature_up CS 'NITRATE'
+    OR iv_nature_up CS 'PERCHLORATE'.
+      rv_reason = 'Oxidiser/organic peroxide detected in nature of goods'.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD check_toxic.
+    IF iv_nature_up CS 'TOXIC'
+    OR iv_nature_up CS 'POISON'
+    OR iv_nature_up CS 'PESTICIDE'
+    OR iv_nature_up CS 'HERBICIDE'
+    OR iv_nature_up CS 'INSECTICIDE'
+    OR iv_nature_up CS 'CYANIDE'
+    OR iv_nature_up CS 'ARSENIC'
+    OR iv_nature_up CS 'MERCURY'
+    OR iv_nature_up CS 'CHLORINE'
+    OR iv_nature_up CS 'AMMONIA'
+    OR iv_nature_up CS 'FORMALDEHYDE'.
+      rv_reason = 'Toxic substance detected in nature of goods'.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD check_infectious.
+    IF iv_nature_up CS 'INFECTIOUS'
+    OR iv_nature_up CS 'PATHOGEN'
+    OR iv_nature_up CS 'CLINICAL WASTE'
+    OR iv_nature_up CS 'MEDICAL WASTE'.
+      rv_reason = 'Infectious substance detected in nature of goods'.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD check_radioactive.
+    IF iv_nature_up CS 'RADIOACT'
+    OR iv_nature_up CS 'NUCLEAR'
+    OR iv_nature_up CS 'URANIUM'
+    OR iv_nature_up CS 'PLUTONIUM'
+    OR iv_nature_up CS 'ISOTOPE'.
+      rv_reason = 'Radioactive material detected in nature of goods'.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD check_corrosive.
+    IF iv_nature_up CS 'CORROSIVE'
+    OR iv_nature_up CS 'ACID'
+    OR iv_nature_up CS 'CAUSTIC'
+    OR iv_nature_up CS 'SULPHURIC'
+    OR iv_nature_up CS 'SULFURIC'
+    OR iv_nature_up CS 'HYDROCHLORIC'
+    OR iv_nature_up CS 'SODIUM HYDROXIDE'
+    OR iv_nature_up CS 'POTASSIUM HYDROXIDE'
+    OR iv_nature_up CS 'BLEACH'.
+      rv_reason = 'Corrosive substance detected in nature of goods'.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD check_hazardous_other.
+    IF iv_nature_up CS 'DANGEROUS GOODS'
+    OR iv_nature_up CS 'HAZARDOUS'
+    OR iv_nature_up CS 'LITHIUM BATTER'
+    OR iv_nature_up CS 'DRY ICE'
+    OR iv_nature_up CS 'MAGNETIS'.
+      rv_reason = 'Hazardous material detected in nature of goods'.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD create_alert_entity.
+    TRY.
+        rs_alert-alertuuid = cl_system_uuid=>create_uuid_x16_static( ).
+      CATCH cx_uuid_error.
+    ENDTRY.
+
+    rs_alert-%cid          = |ALERT{ iv_alert_seq }|.
+    rs_alert-cmruuid       = is_item-cmruuid.
+    rs_alert-cmrid         = is_item-cmrid.
+    rs_alert-cmritemuuid   = is_item-cmritemuuid.
+    rs_alert-itemposition  = is_item-itemposition.
+    rs_alert-natureofgoods = is_item-natureofgoods.
+    rs_alert-alerttype     = 'DANGER_GOODS'.
+    rs_alert-alertmessage  = iv_reason.
+
+    rs_alert-%control      = VALUE #( alertuuid     = if_abap_behv=>mk-on
+                                      cmruuid       = if_abap_behv=>mk-on
+                                      cmrid         = if_abap_behv=>mk-on
+                                      cmritemuuid   = if_abap_behv=>mk-on
+                                      itemposition  = if_abap_behv=>mk-on
+                                      natureofgoods = if_abap_behv=>mk-on
+                                      alerttype     = if_abap_behv=>mk-on
+                                      alertmessage  = if_abap_behv=>mk-on ).
+  ENDMETHOD.
+
+  METHOD persist_alerts_via_rap.
     MODIFY ENTITIES OF zr_pru_cmr_alert
            ENTITY zrprucmralert
-           CREATE FROM lt_alert_rap
+           CREATE FROM it_alerts
            MAPPED DATA(ls_mapped_alert)
            FAILED DATA(ls_failed_alert).
 
@@ -1120,591 +1190,727 @@ CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
          ALL FIELDS WITH CORRESPONDING #( ls_mapped_alert-zrprucmralert )
          RESULT DATA(lt_alert_create).
 
-    lt_cmr_alert_context = CORRESPONDING #( lt_alert_create MAPPING FROM ENTITY ).
+    rt_alerts = CORRESPONDING #( lt_alert_create MAPPING FROM ENTITY ).
+  ENDMETHOD.
 
-    APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv>).
+  METHOD append_alert_output.
+    APPEND INITIAL LINE TO ct_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv>).
     <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-cmralerts-field_name.
     <ls_kv>-type  = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name.
-    <ls_kv>-value = /ui2/cl_json=>serialize( data          = lt_cmr_alert_context
+    <ls_kv>-value = /ui2/cl_json=>serialize( data          = it_alerts
                                              hex_as_base64 = abap_false
                                              compress      = abap_true ).
-
-    es_output = NEW zpru_tt_key_value( et_key_value_pairs ).
   ENDMETHOD.
+
 ENDCLASS.
 
 
 CLASS lcl_adf_validate_cmr IMPLEMENTATION.
+
   METHOD execute_code_int.
-    DATA lt_headers      TYPE zpru_if_computer_vision=>tt_cmr_header_context.
-    DATA lt_items        TYPE zpru_if_computer_vision=>tt_cmr_item_context.
+    DATA: lt_headers TYPE zpru_if_computer_vision=>tt_cmr_header_context,
+          lt_items   TYPE zpru_if_computer_vision=>tt_cmr_item_context.
+
+    deserialize_validation_input( EXPORTING is_input = is_input
+                                  IMPORTING et_headers = lt_headers
+                                            et_items   = lt_items ).
+
     DATA lt_alerts       TYPE zpru_if_computer_vision=>tt_cmr_alert_context.
     DATA lt_findings_rap TYPE TABLE FOR CREATE zr_pru_cmr_valid\\zrprucmrvalid.
     DATA lt_findings_out TYPE zpru_if_computer_vision=>tt_cmr_finding.
     DATA lt_cmr_status   TYPE zpru_if_computer_vision=>tt_cmr_overall_status.
-    DATA ls_finding_out  TYPE zpru_if_computer_vision=>ts_cmr_finding.
     DATA lv_cid_counter  TYPE i VALUE 1.
 
-    FIELD-SYMBOLS <ls_input> TYPE zpru_if_computer_vision=>ts_cmr_validate_req.
+    LOOP AT lt_headers ASSIGNING FIELD-SYMBOL(<ls_hdr>).
+      validate_header_senderinfo( EXPORTING is_header      = <ls_hdr>
+                                  CHANGING  ct_findings    = lt_findings_out
+                                            ct_findings_rap = lt_findings_rap
+                                            cv_cid_counter  = lv_cid_counter ).
 
+      validate_header_consigneeinfo( EXPORTING is_header      = <ls_hdr>
+                                     CHANGING  ct_findings    = lt_findings_out
+                                               ct_findings_rap = lt_findings_rap
+                                               cv_cid_counter  = lv_cid_counter ).
+
+      validate_header_carrierinfo( EXPORTING is_header      = <ls_hdr>
+                                   CHANGING  ct_findings    = lt_findings_out
+                                             ct_findings_rap = lt_findings_rap
+                                             cv_cid_counter  = lv_cid_counter ).
+
+      validate_header_takingoverplace( EXPORTING is_header      = <ls_hdr>
+                                       CHANGING  ct_findings    = lt_findings_out
+                                                 ct_findings_rap = lt_findings_rap
+                                                 cv_cid_counter  = lv_cid_counter ).
+
+      validate_header_deliveryplace( EXPORTING is_header      = <ls_hdr>
+                                     CHANGING  ct_findings    = lt_findings_out
+                                               ct_findings_rap = lt_findings_rap
+                                               cv_cid_counter  = lv_cid_counter ).
+
+      validate_header_takingoverdate( EXPORTING is_header      = <ls_hdr>
+                                      CHANGING  ct_findings    = lt_findings_out
+                                                ct_findings_rap = lt_findings_rap
+                                                cv_cid_counter  = lv_cid_counter ).
+
+      validate_header_currency( EXPORTING is_header      = <ls_hdr>
+                                CHANGING  ct_findings    = lt_findings_out
+                                          ct_findings_rap = lt_findings_rap
+                                          cv_cid_counter  = lv_cid_counter ).
+
+      validate_item_count( EXPORTING is_header      = <ls_hdr>
+                                     it_items       = lt_items
+                           CHANGING  ct_findings    = lt_findings_out
+                                     ct_findings_rap = lt_findings_rap
+                                     cv_cid_counter  = lv_cid_counter ).
+
+      LOOP AT lt_items ASSIGNING FIELD-SYMBOL(<ls_item>)
+           WHERE cmruuid = <ls_hdr>-cmruuid.
+
+        validate_item_natureofgoods( EXPORTING is_header      = <ls_hdr>
+                                               is_item        = <ls_item>
+                                     CHANGING  ct_findings    = lt_findings_out
+                                               ct_findings_rap = lt_findings_rap
+                                               cv_cid_counter  = lv_cid_counter ).
+
+        validate_item_grossweight( EXPORTING is_header      = <ls_hdr>
+                                             is_item        = <ls_item>
+                                   CHANGING  ct_findings    = lt_findings_out
+                                             ct_findings_rap = lt_findings_rap
+                                             cv_cid_counter  = lv_cid_counter ).
+
+        validate_item_weightunit( EXPORTING is_header      = <ls_hdr>
+                                            is_item        = <ls_item>
+                                  CHANGING  ct_findings    = lt_findings_out
+                                            ct_findings_rap = lt_findings_rap
+                                            cv_cid_counter  = lv_cid_counter ).
+
+        validate_item_dg_fields( EXPORTING is_header      = <ls_hdr>
+                                           is_item        = <ls_item>
+                                           it_alerts      = lt_alerts
+                                 CHANGING  ct_findings    = lt_findings_out
+                                           ct_findings_rap = lt_findings_rap
+                                           cv_cid_counter  = lv_cid_counter ).
+      ENDLOOP.
+
+      calculate_cmr_status( EXPORTING is_header   = <ls_hdr>
+                                      it_findings = lt_findings_out
+                            CHANGING  ct_status   = lt_cmr_status ).
+    ENDLOOP.
+
+    persist_validation_findings( EXPORTING it_findings_rap = lt_findings_rap
+                                 CHANGING  ev_error_flag   = ev_error_flag ).
+
+    IF ev_error_flag = abap_true.
+      RETURN.
+    ENDIF.
+
+    append_validation_output( EXPORTING it_cmr_status    = lt_cmr_status
+                                       it_cmr_findings  = lt_findings_out
+                             CHANGING  ct_key_value_pairs = et_key_value_pairs ).
+
+    es_output = NEW zpru_tt_key_value( et_key_value_pairs ).
+  ENDMETHOD.
+
+  METHOD deserialize_validation_input.
+    FIELD-SYMBOLS <ls_input> TYPE zpru_if_computer_vision=>ts_cmr_validate_req.
     ASSIGN is_input->* TO <ls_input>.
     IF sy-subrc <> 0.
       RAISE EXCEPTION NEW zpru_cx_agent_core( ).
     ENDIF.
 
-    /ui2/cl_json=>deserialize( EXPORTING json          = <ls_input>-cmrheaders
-                                         hex_as_base64 = abap_false
-                               CHANGING  data          = lt_headers ).
-    /ui2/cl_json=>deserialize( EXPORTING json          = <ls_input>-cmritems
-                                         hex_as_base64 = abap_false
-                               CHANGING  data          = lt_items ).
+    /ui2/cl_json=>deserialize( EXPORTING json           = <ls_input>-cmrheaders
+                                         hex_as_base64  = abap_false
+                               CHANGING  data           = et_headers ).
+    /ui2/cl_json=>deserialize( EXPORTING json           = <ls_input>-cmritems
+                                         hex_as_base64  = abap_false
+                               CHANGING  data           = et_items ).
+  ENDMETHOD.
 
-    LOOP AT lt_headers ASSIGNING FIELD-SYMBOL(<ls_hdr>).
+  METHOD validate_header_senderinfo.
+    IF is_header-senderinfo IS INITIAL.
+      add_finding_to_output( EXPORTING is_finding_rap = VALUE #(
+                                   findinguuid   = cl_system_uuid=>create_uuid_x16_static( )
+                                   cmruuid       = is_header-cmruuid
+                                   cmrid         = is_header-cmrid
+                                   findingstatus = 'INCOMPLETE'
+                                   findingtype   = 'MANDATORY_FIELD'
+                                   fieldname     = 'SENDERINFO'
+                                   findingmsg    = 'Sender information is missing'
+                                   createdby     = sy-uname
+                                   createdat     = VALUE #( ) )
+                             CHANGING  ct_findings    = ct_findings
+                                       cv_cid_counter = cv_cid_counter ).
+      " Update %cid and %control after creation
+      DATA(ls_latest) = ct_findings_rap[ lines( ct_findings_rap ) ].
+      ls_latest-%cid     = |FIND{ cv_cid_counter }|.
+      ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                    cmruuid       = if_abap_behv=>mk-on
+                                    cmrid         = if_abap_behv=>mk-on
+                                    findingstatus = if_abap_behv=>mk-on
+                                    findingtype   = if_abap_behv=>mk-on
+                                    fieldname     = if_abap_behv=>mk-on
+                                    findingmsg    = if_abap_behv=>mk-on
+                                    createdby     = if_abap_behv=>mk-on
+                                    createdat     = if_abap_behv=>mk-on ).
+      APPEND ls_latest TO ct_findings_rap.
+      cv_cid_counter += 1.
+    ENDIF.
+  ENDMETHOD.
 
-      IF <ls_hdr>-senderinfo IS INITIAL.
-        CLEAR ls_finding_out.
-        APPEND INITIAL LINE TO lt_findings_rap ASSIGNING FIELD-SYMBOL(<ls_finding_rap>).
+  METHOD add_finding_to_output.
+    GET TIME STAMP FIELD is_finding_rap-createdat.
+    MOVE-CORRESPONDING is_finding_rap TO DATA(ls_finding_out).
+    APPEND ls_finding_out TO ct_findings.
+  ENDMETHOD.
 
-        TRY.
-            <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
-          CATCH cx_uuid_error.
-        ENDTRY.
+  METHOD validate_header_consigneeinfo.
+    IF is_header-consigneeinfo IS INITIAL.
+      add_finding_to_output( EXPORTING is_finding_rap = VALUE #(
+                                   findinguuid   = cl_system_uuid=>create_uuid_x16_static( )
+                                   cmruuid       = is_header-cmruuid
+                                   cmrid         = is_header-cmrid
+                                   findingstatus = 'INCOMPLETE'
+                                   findingtype   = 'MANDATORY_FIELD'
+                                   fieldname     = 'CONSIGNEEINFO'
+                                   findingmsg    = 'Consignee information is missing'
+                                   createdby     = sy-uname
+                                   createdat     = VALUE #( ) )
+                             CHANGING  ct_findings    = ct_findings
+                                       cv_cid_counter = cv_cid_counter ).
+      DATA(ls_latest) = ct_findings_rap[ lines( ct_findings_rap ) ].
+      ls_latest-%cid     = |FIND{ cv_cid_counter }|.
+      ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                    cmruuid       = if_abap_behv=>mk-on
+                                    cmrid         = if_abap_behv=>mk-on
+                                    findingstatus = if_abap_behv=>mk-on
+                                    findingtype   = if_abap_behv=>mk-on
+                                    fieldname     = if_abap_behv=>mk-on
+                                    findingmsg    = if_abap_behv=>mk-on
+                                    createdby     = if_abap_behv=>mk-on
+                                    createdat     = if_abap_behv=>mk-on ).
+      APPEND ls_latest TO ct_findings_rap.
+      cv_cid_counter += 1.
+    ENDIF.
+  ENDMETHOD.
 
-        <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
-        <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
-        <ls_finding_rap>-findingstatus = 'INCOMPLETE'.
-        <ls_finding_rap>-findingtype   = 'MANDATORY_FIELD'.
-        <ls_finding_rap>-fieldname     = 'SENDERINFO'.
-        <ls_finding_rap>-findingmsg    = 'Sender information is missing'.
-        <ls_finding_rap>-createdby     = sy-uname.
-        GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-        <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
-        <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                             cmruuid       = if_abap_behv=>mk-on
-                                             cmrid         = if_abap_behv=>mk-on
-                                             findingstatus = if_abap_behv=>mk-on
-                                             findingtype   = if_abap_behv=>mk-on
-                                             fieldname     = if_abap_behv=>mk-on
-                                             findingmsg    = if_abap_behv=>mk-on
-                                             createdby     = if_abap_behv=>mk-on
-                                             createdat     = if_abap_behv=>mk-on ).
-        lv_cid_counter += 1.
-        MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
-        APPEND ls_finding_out TO lt_findings_out.
-      ENDIF.
+  METHOD validate_header_carrierinfo.
+    IF is_header-carrierinfo IS INITIAL.
+      add_finding_to_output( EXPORTING is_finding_rap = VALUE #(
+                                   findinguuid   = cl_system_uuid=>create_uuid_x16_static( )
+                                   cmruuid       = is_header-cmruuid
+                                   cmrid         = is_header-cmrid
+                                   findingstatus = 'INCOMPLETE'
+                                   findingtype   = 'MANDATORY_FIELD'
+                                   fieldname     = 'CARRIERINFO'
+                                   findingmsg    = 'Carrier information is missing'
+                                   createdby     = sy-uname
+                                   createdat     = VALUE #( ) )
+                             CHANGING  ct_findings    = ct_findings
+                                       cv_cid_counter = cv_cid_counter ).
+      DATA(ls_latest) = ct_findings_rap[ lines( ct_findings_rap ) ].
+      ls_latest-%cid     = |FIND{ cv_cid_counter }|.
+      ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                    cmruuid       = if_abap_behv=>mk-on
+                                    cmrid         = if_abap_behv=>mk-on
+                                    findingstatus = if_abap_behv=>mk-on
+                                    findingtype   = if_abap_behv=>mk-on
+                                    fieldname     = if_abap_behv=>mk-on
+                                    findingmsg    = if_abap_behv=>mk-on
+                                    createdby     = if_abap_behv=>mk-on
+                                    createdat     = if_abap_behv=>mk-on ).
+      APPEND ls_latest TO ct_findings_rap.
+      cv_cid_counter += 1.
+    ENDIF.
+  ENDMETHOD.
 
-      IF <ls_hdr>-consigneeinfo IS INITIAL.
-        CLEAR ls_finding_out.
-        APPEND INITIAL LINE TO lt_findings_rap ASSIGNING <ls_finding_rap>.
-        TRY.
-            <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
-          CATCH cx_uuid_error.
-        ENDTRY.
-        <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
-        <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
-        <ls_finding_rap>-findingstatus = 'INCOMPLETE'.
-        <ls_finding_rap>-findingtype   = 'MANDATORY_FIELD'.
-        <ls_finding_rap>-fieldname     = 'CONSIGNEEINFO'.
-        <ls_finding_rap>-findingmsg    = 'Consignee information is missing'.
-        <ls_finding_rap>-createdby     = sy-uname.
-        GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-        <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
-        <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                             cmruuid       = if_abap_behv=>mk-on
-                                             cmrid         = if_abap_behv=>mk-on
-                                             findingstatus = if_abap_behv=>mk-on
-                                             findingtype   = if_abap_behv=>mk-on
-                                             fieldname     = if_abap_behv=>mk-on
-                                             findingmsg    = if_abap_behv=>mk-on
-                                             createdby     = if_abap_behv=>mk-on
-                                             createdat     = if_abap_behv=>mk-on ).
-        lv_cid_counter += 1.
-        MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
-        APPEND ls_finding_out TO lt_findings_out.
-      ENDIF.
+  METHOD validate_header_takingoverplace.
+    IF is_header-takingoverplace IS INITIAL.
+      add_finding_to_output( EXPORTING is_finding_rap = VALUE #(
+                                   findinguuid   = cl_system_uuid=>create_uuid_x16_static( )
+                                   cmruuid       = is_header-cmruuid
+                                   cmrid         = is_header-cmrid
+                                   findingstatus = 'INCOMPLETE'
+                                   findingtype   = 'MANDATORY_FIELD'
+                                   fieldname     = 'TAKINGOVERPLACE'
+                                   findingmsg    = 'Taking-over place is missing'
+                                   createdby     = sy-uname
+                                   createdat     = VALUE #( ) )
+                             CHANGING  ct_findings    = ct_findings
+                                       cv_cid_counter = cv_cid_counter ).
+      DATA(ls_latest) = ct_findings_rap[ lines( ct_findings_rap ) ].
+      ls_latest-%cid     = |FIND{ cv_cid_counter }|.
+      ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                    cmruuid       = if_abap_behv=>mk-on
+                                    cmrid         = if_abap_behv=>mk-on
+                                    findingstatus = if_abap_behv=>mk-on
+                                    findingtype   = if_abap_behv=>mk-on
+                                    fieldname     = if_abap_behv=>mk-on
+                                    findingmsg    = if_abap_behv=>mk-on
+                                    createdby     = if_abap_behv=>mk-on
+                                    createdat     = if_abap_behv=>mk-on ).
+      APPEND ls_latest TO ct_findings_rap.
+      cv_cid_counter += 1.
+    ENDIF.
+  ENDMETHOD.
 
-      IF <ls_hdr>-carrierinfo IS INITIAL.
-        CLEAR ls_finding_out.
-        APPEND INITIAL LINE TO lt_findings_rap ASSIGNING <ls_finding_rap>.
-        TRY.
-            <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
-          CATCH cx_uuid_error.
-        ENDTRY.
-        <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
-        <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
-        <ls_finding_rap>-findingstatus = 'INCOMPLETE'.
-        <ls_finding_rap>-findingtype   = 'MANDATORY_FIELD'.
-        <ls_finding_rap>-fieldname     = 'CARRIERINFO'.
-        <ls_finding_rap>-findingmsg    = 'Carrier information is missing'.
-        <ls_finding_rap>-createdby     = sy-uname.
-        GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-        <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
-        <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                             cmruuid       = if_abap_behv=>mk-on
-                                             cmrid         = if_abap_behv=>mk-on
-                                             findingstatus = if_abap_behv=>mk-on
-                                             findingtype   = if_abap_behv=>mk-on
-                                             fieldname     = if_abap_behv=>mk-on
-                                             findingmsg    = if_abap_behv=>mk-on
-                                             createdby     = if_abap_behv=>mk-on
-                                             createdat     = if_abap_behv=>mk-on ).
-        lv_cid_counter += 1.
-        MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
-        APPEND ls_finding_out TO lt_findings_out.
-      ENDIF.
+  METHOD validate_header_deliveryplace.
+    IF is_header-deliveryplace IS INITIAL.
+      add_finding_to_output( EXPORTING is_finding_rap = VALUE #(
+                                   findinguuid   = cl_system_uuid=>create_uuid_x16_static( )
+                                   cmruuid       = is_header-cmruuid
+                                   cmrid         = is_header-cmrid
+                                   findingstatus = 'INCOMPLETE'
+                                   findingtype   = 'MANDATORY_FIELD'
+                                   fieldname     = 'DELIVERYPLACE'
+                                   findingmsg    = 'Delivery place is missing'
+                                   createdby     = sy-uname
+                                   createdat     = VALUE #( ) )
+                             CHANGING  ct_findings    = ct_findings
+                                       cv_cid_counter = cv_cid_counter ).
+      DATA(ls_latest) = ct_findings_rap[ lines( ct_findings_rap ) ].
+      ls_latest-%cid     = |FIND{ cv_cid_counter }|.
+      ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                    cmruuid       = if_abap_behv=>mk-on
+                                    cmrid         = if_abap_behv=>mk-on
+                                    findingstatus = if_abap_behv=>mk-on
+                                    findingtype   = if_abap_behv=>mk-on
+                                    fieldname     = if_abap_behv=>mk-on
+                                    findingmsg    = if_abap_behv=>mk-on
+                                    createdby     = if_abap_behv=>mk-on
+                                    createdat     = if_abap_behv=>mk-on ).
+      APPEND ls_latest TO ct_findings_rap.
+      cv_cid_counter += 1.
+    ENDIF.
+  ENDMETHOD.
 
-      IF <ls_hdr>-takingoverplace IS INITIAL.
-        CLEAR ls_finding_out.
-        APPEND INITIAL LINE TO lt_findings_rap ASSIGNING <ls_finding_rap>.
-        TRY.
-            <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
-          CATCH cx_uuid_error.
-        ENDTRY.
-        <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
-        <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
-        <ls_finding_rap>-findingstatus = 'INCOMPLETE'.
-        <ls_finding_rap>-findingtype   = 'MANDATORY_FIELD'.
-        <ls_finding_rap>-fieldname     = 'TAKINGOVERPLACE'.
-        <ls_finding_rap>-findingmsg    = 'Taking-over place is missing'.
-        <ls_finding_rap>-createdby     = sy-uname.
-        GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-        <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
-        <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                             cmruuid       = if_abap_behv=>mk-on
-                                             cmrid         = if_abap_behv=>mk-on
-                                             findingstatus = if_abap_behv=>mk-on
-                                             findingtype   = if_abap_behv=>mk-on
-                                             fieldname     = if_abap_behv=>mk-on
-                                             findingmsg    = if_abap_behv=>mk-on
-                                             createdby     = if_abap_behv=>mk-on
-                                             createdat     = if_abap_behv=>mk-on ).
-        lv_cid_counter += 1.
-        MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
-        APPEND ls_finding_out TO lt_findings_out.
-      ENDIF.
+  METHOD validate_header_takingoverdate.
+    IF is_header-takingoverdate IS INITIAL OR is_header-takingoverdate = '00000000'.
+      add_finding_to_output( EXPORTING is_finding_rap = VALUE #(
+                                   findinguuid   = cl_system_uuid=>create_uuid_x16_static( )
+                                   cmruuid       = is_header-cmruuid
+                                   cmrid         = is_header-cmrid
+                                   findingstatus = 'INCOMPLETE'
+                                   findingtype   = 'DATE_CHECK'
+                                   fieldname     = 'TAKINGOVERDATE'
+                                   findingmsg    = 'Taking-over date is missing'
+                                   createdby     = sy-uname
+                                   createdat     = VALUE #( ) )
+                             CHANGING  ct_findings    = ct_findings
+                                       cv_cid_counter = cv_cid_counter ).
+      DATA(ls_latest) = ct_findings_rap[ lines( ct_findings_rap ) ].
+      ls_latest-%cid     = |FIND{ cv_cid_counter }|.
+      ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                    cmruuid       = if_abap_behv=>mk-on
+                                    cmrid         = if_abap_behv=>mk-on
+                                    findingstatus = if_abap_behv=>mk-on
+                                    findingtype   = if_abap_behv=>mk-on
+                                    fieldname     = if_abap_behv=>mk-on
+                                    findingmsg    = if_abap_behv=>mk-on
+                                    createdby     = if_abap_behv=>mk-on
+                                    createdat     = if_abap_behv=>mk-on ).
+      APPEND ls_latest TO ct_findings_rap.
+      cv_cid_counter += 1.
+    ENDIF.
+  ENDMETHOD.
 
-      IF <ls_hdr>-deliveryplace IS INITIAL.
-        CLEAR ls_finding_out.
-        APPEND INITIAL LINE TO lt_findings_rap ASSIGNING <ls_finding_rap>.
-        TRY.
-            <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
-          CATCH cx_uuid_error.
-        ENDTRY.
-        <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
-        <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
-        <ls_finding_rap>-findingstatus = 'INCOMPLETE'.
-        <ls_finding_rap>-findingtype   = 'MANDATORY_FIELD'.
-        <ls_finding_rap>-fieldname     = 'DELIVERYPLACE'.
-        <ls_finding_rap>-findingmsg    = 'Delivery place is missing'.
-        <ls_finding_rap>-createdby     = sy-uname.
-        GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-        <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
-        <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                             cmruuid       = if_abap_behv=>mk-on
-                                             cmrid         = if_abap_behv=>mk-on
-                                             findingstatus = if_abap_behv=>mk-on
-                                             findingtype   = if_abap_behv=>mk-on
-                                             fieldname     = if_abap_behv=>mk-on
-                                             findingmsg    = if_abap_behv=>mk-on
-                                             createdby     = if_abap_behv=>mk-on
-                                             createdat     = if_abap_behv=>mk-on ).
-        lv_cid_counter += 1.
-        MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
-        APPEND ls_finding_out TO lt_findings_out.
-      ENDIF.
+  METHOD validate_header_currency.
+    IF is_header-cashondelivery > 0 AND is_header-currency IS INITIAL.
+      add_finding_to_output( EXPORTING is_finding_rap = VALUE #(
+                                   findinguuid   = cl_system_uuid=>create_uuid_x16_static( )
+                                   cmruuid       = is_header-cmruuid
+                                   cmrid         = is_header-cmrid
+                                   findingstatus = 'INCOMPLETE'
+                                   findingtype   = 'MANDATORY_FIELD'
+                                   fieldname     = 'CURRENCY'
+                                   findingmsg    = 'Currency required when cash on delivery is set'
+                                   createdby     = sy-uname
+                                   createdat     = VALUE #( ) )
+                             CHANGING  ct_findings    = ct_findings
+                                       cv_cid_counter = cv_cid_counter ).
+      DATA(ls_latest) = ct_findings_rap[ lines( ct_findings_rap ) ].
+      ls_latest-%cid     = |FIND{ cv_cid_counter }|.
+      ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                    cmruuid       = if_abap_behv=>mk-on
+                                    cmrid         = if_abap_behv=>mk-on
+                                    findingstatus = if_abap_behv=>mk-on
+                                    findingtype   = if_abap_behv=>mk-on
+                                    fieldname     = if_abap_behv=>mk-on
+                                    findingmsg    = if_abap_behv=>mk-on
+                                    createdby     = if_abap_behv=>mk-on
+                                    createdat     = if_abap_behv=>mk-on ).
+      APPEND ls_latest TO ct_findings_rap.
+      cv_cid_counter += 1.
+    ENDIF.
+  ENDMETHOD.
 
-      IF <ls_hdr>-takingoverdate IS INITIAL OR <ls_hdr>-takingoverdate = '00000000'.
-        CLEAR ls_finding_out.
-        APPEND INITIAL LINE TO lt_findings_rap ASSIGNING <ls_finding_rap>.
-        TRY.
-            <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
-          CATCH cx_uuid_error.
-        ENDTRY.
-        <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
-        <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
-        <ls_finding_rap>-findingstatus = 'INCOMPLETE'.
-        <ls_finding_rap>-findingtype   = 'DATE_CHECK'.
-        <ls_finding_rap>-fieldname     = 'TAKINGOVERDATE'.
-        <ls_finding_rap>-findingmsg    = 'Taking-over date is missing'.
-        <ls_finding_rap>-createdby     = sy-uname.
-        GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-        <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
-        <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                             cmruuid       = if_abap_behv=>mk-on
-                                             cmrid         = if_abap_behv=>mk-on
-                                             findingstatus = if_abap_behv=>mk-on
-                                             findingtype   = if_abap_behv=>mk-on
-                                             fieldname     = if_abap_behv=>mk-on
-                                             findingmsg    = if_abap_behv=>mk-on
-                                             createdby     = if_abap_behv=>mk-on
-                                             createdat     = if_abap_behv=>mk-on ).
-        lv_cid_counter += 1.
-        MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
-        APPEND ls_finding_out TO lt_findings_out.
-      ENDIF.
+  METHOD validate_item_count.
+    DATA(lv_item_count) = REDUCE i( INIT n = 0
+                                    FOR <it> IN it_items
+                                    WHERE ( cmruuid = is_header-cmruuid )
+                                    NEXT n = n + 1 ).
+    IF lv_item_count = 0.
+      add_finding_to_output( EXPORTING is_finding_rap = VALUE #(
+                                   findinguuid   = cl_system_uuid=>create_uuid_x16_static( )
+                                   cmruuid       = is_header-cmruuid
+                                   cmrid         = is_header-cmrid
+                                   findingstatus = 'INVALID'
+                                   findingtype   = 'ITEM_COUNT'
+                                   fieldname     = ''
+                                   findingmsg    = 'No items found for CMR'
+                                   createdby     = sy-uname
+                                   createdat     = VALUE #( ) )
+                             CHANGING  ct_findings    = ct_findings
+                                       cv_cid_counter = cv_cid_counter ).
+      DATA(ls_latest) = ct_findings_rap[ lines( ct_findings_rap ) ].
+      ls_latest-%cid     = |FIND{ cv_cid_counter }|.
+      ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                    cmruuid       = if_abap_behv=>mk-on
+                                    cmrid         = if_abap_behv=>mk-on
+                                    findingstatus = if_abap_behv=>mk-on
+                                    findingtype   = if_abap_behv=>mk-on
+                                    fieldname     = if_abap_behv=>mk-on
+                                    findingmsg    = if_abap_behv=>mk-on
+                                    createdby     = if_abap_behv=>mk-on
+                                    createdat     = if_abap_behv=>mk-on ).
+      APPEND ls_latest TO ct_findings_rap.
+      cv_cid_counter += 1.
+    ENDIF.
+  ENDMETHOD.
 
-      IF <ls_hdr>-cashondelivery > 0 AND <ls_hdr>-currency IS INITIAL.
-        CLEAR ls_finding_out.
-        APPEND INITIAL LINE TO lt_findings_rap ASSIGNING <ls_finding_rap>.
-        TRY.
-            <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
-          CATCH cx_uuid_error.
-        ENDTRY.
-        <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
-        <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
-        <ls_finding_rap>-findingstatus = 'INCOMPLETE'.
-        <ls_finding_rap>-findingtype   = 'MANDATORY_FIELD'.
-        <ls_finding_rap>-fieldname     = 'CURRENCY'.
-        <ls_finding_rap>-findingmsg    = 'Currency required when cash on delivery is set'.
-        <ls_finding_rap>-createdby     = sy-uname.
-        GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-        <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
-        <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                             cmruuid       = if_abap_behv=>mk-on
-                                             cmrid         = if_abap_behv=>mk-on
-                                             findingstatus = if_abap_behv=>mk-on
-                                             findingtype   = if_abap_behv=>mk-on
-                                             fieldname     = if_abap_behv=>mk-on
-                                             findingmsg    = if_abap_behv=>mk-on
-                                             createdby     = if_abap_behv=>mk-on
-                                             createdat     = if_abap_behv=>mk-on ).
-        lv_cid_counter += 1.
-        MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
-        APPEND ls_finding_out TO lt_findings_out.
-      ENDIF.
+  METHOD validate_item_natureofgoods.
+    IF is_item-natureofgoods IS INITIAL.
+      add_finding_to_output( EXPORTING is_finding_rap = VALUE #(
+                                   findinguuid   = cl_system_uuid=>create_uuid_x16_static( )
+                                   cmruuid       = is_header-cmruuid
+                                   cmrid         = is_header-cmrid
+                                   cmritemuuid   = is_item-cmritemuuid
+                                   itemposition  = is_item-itemposition
+                                   findingstatus = 'INCOMPLETE'
+                                   findingtype   = 'MANDATORY_FIELD'
+                                   fieldname     = 'NATUREOFGOODS'
+                                   findingmsg    = |Nature of goods is missing for item { is_item-itemposition }|
+                                   createdby     = sy-uname
+                                   createdat     = VALUE #( ) )
+                             CHANGING  ct_findings    = ct_findings
+                                       cv_cid_counter = cv_cid_counter ).
+      DATA(ls_latest) = ct_findings_rap[ lines( ct_findings_rap ) ].
+      ls_latest-%cid     = |FIND{ cv_cid_counter }|.
+      ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                    cmruuid       = if_abap_behv=>mk-on
+                                    cmrid         = if_abap_behv=>mk-on
+                                    cmritemuuid   = if_abap_behv=>mk-on
+                                    itemposition  = if_abap_behv=>mk-on
+                                    findingstatus = if_abap_behv=>mk-on
+                                    findingtype   = if_abap_behv=>mk-on
+                                    fieldname     = if_abap_behv=>mk-on
+                                    findingmsg    = if_abap_behv=>mk-on
+                                    createdby     = if_abap_behv=>mk-on
+                                    createdat     = if_abap_behv=>mk-on ).
+      APPEND ls_latest TO ct_findings_rap.
+      cv_cid_counter += 1.
+    ENDIF.
+  ENDMETHOD.
 
-      DATA(lv_item_count) = REDUCE i( INIT n = 0
-                                      FOR <it> IN lt_items
-                                      WHERE ( cmruuid = <ls_hdr>-cmruuid )
-                                      NEXT n = n + 1 ).
-      IF lv_item_count = 0.
-        CLEAR ls_finding_out.
-        APPEND INITIAL LINE TO lt_findings_rap ASSIGNING <ls_finding_rap>.
-        TRY.
-            <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
-          CATCH cx_uuid_error.
-        ENDTRY.
-        <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
-        <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
-        <ls_finding_rap>-findingstatus = 'INVALID'.
-        <ls_finding_rap>-findingtype   = 'ITEM_COUNT'.
-        <ls_finding_rap>-fieldname     = ''.
-        <ls_finding_rap>-findingmsg    = 'No items found for CMR'.
-        <ls_finding_rap>-createdby     = sy-uname.
-        GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-        <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
-        <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                             cmruuid       = if_abap_behv=>mk-on
-                                             cmrid         = if_abap_behv=>mk-on
-                                             findingstatus = if_abap_behv=>mk-on
-                                             findingtype   = if_abap_behv=>mk-on
-                                             fieldname     = if_abap_behv=>mk-on
-                                             findingmsg    = if_abap_behv=>mk-on
-                                             createdby     = if_abap_behv=>mk-on
-                                             createdat     = if_abap_behv=>mk-on ).
-        lv_cid_counter += 1.
-        MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
-        APPEND ls_finding_out TO lt_findings_out.
-      ENDIF.
+  METHOD validate_item_grossweight.
+    IF is_item-grossweight <= 0.
+      add_finding_to_output( EXPORTING is_finding_rap = VALUE #(
+                                   findinguuid   = cl_system_uuid=>create_uuid_x16_static( )
+                                   cmruuid       = is_header-cmruuid
+                                   cmrid         = is_header-cmrid
+                                   cmritemuuid   = is_item-cmritemuuid
+                                   itemposition  = is_item-itemposition
+                                   findingstatus = 'INCOMPLETE'
+                                   findingtype   = 'WEIGHT_CHECK'
+                                   fieldname     = 'GROSSWEIGHT'
+                                   findingmsg    = |Gross weight must be greater than zero for item { is_item-itemposition }|
+                                   createdby     = sy-uname
+                                   createdat     = VALUE #( ) )
+                             CHANGING  ct_findings    = ct_findings
+                                       cv_cid_counter = cv_cid_counter ).
+      DATA(ls_latest) = ct_findings_rap[ lines( ct_findings_rap ) ].
+      ls_latest-%cid     = |FIND{ cv_cid_counter }|.
+      ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                    cmruuid       = if_abap_behv=>mk-on
+                                    cmrid         = if_abap_behv=>mk-on
+                                    cmritemuuid   = if_abap_behv=>mk-on
+                                    itemposition  = if_abap_behv=>mk-on
+                                    findingstatus = if_abap_behv=>mk-on
+                                    findingtype   = if_abap_behv=>mk-on
+                                    fieldname     = if_abap_behv=>mk-on
+                                    findingmsg    = if_abap_behv=>mk-on
+                                    createdby     = if_abap_behv=>mk-on
+                                    createdat     = if_abap_behv=>mk-on ).
+      APPEND ls_latest TO ct_findings_rap.
+      cv_cid_counter += 1.
+    ENDIF.
+  ENDMETHOD.
 
-      LOOP AT lt_items ASSIGNING FIELD-SYMBOL(<ls_item>)
-           WHERE cmruuid = <ls_hdr>-cmruuid.
+  METHOD validate_item_weightunit.
+    IF is_item-weightunitfield IS INITIAL.
+      add_finding_to_output( EXPORTING is_finding_rap = VALUE #(
+                                   findinguuid   = cl_system_uuid=>create_uuid_x16_static( )
+                                   cmruuid       = is_header-cmruuid
+                                   cmrid         = is_header-cmrid
+                                   cmritemuuid   = is_item-cmritemuuid
+                                   itemposition  = is_item-itemposition
+                                   findingstatus = 'INCOMPLETE'
+                                   findingtype   = 'MANDATORY_FIELD'
+                                   fieldname     = 'WEIGHTUNITFIELD'
+                                   findingmsg    = |Weight unit is missing for item { is_item-itemposition }|
+                                   createdby     = sy-uname
+                                   createdat     = VALUE #( ) )
+                             CHANGING  ct_findings    = ct_findings
+                                       cv_cid_counter = cv_cid_counter ).
+      DATA(ls_latest) = ct_findings_rap[ lines( ct_findings_rap ) ].
+      ls_latest-%cid     = |FIND{ cv_cid_counter }|.
+      ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                    cmruuid       = if_abap_behv=>mk-on
+                                    cmrid         = if_abap_behv=>mk-on
+                                    cmritemuuid   = if_abap_behv=>mk-on
+                                    itemposition  = if_abap_behv=>mk-on
+                                    findingstatus = if_abap_behv=>mk-on
+                                    findingtype   = if_abap_behv=>mk-on
+                                    fieldname     = if_abap_behv=>mk-on
+                                    findingmsg    = if_abap_behv=>mk-on
+                                    createdby     = if_abap_behv=>mk-on
+                                    createdat     = if_abap_behv=>mk-on ).
+      APPEND ls_latest TO ct_findings_rap.
+      cv_cid_counter += 1.
+    ENDIF.
+  ENDMETHOD.
 
-        IF <ls_item>-natureofgoods IS INITIAL.
-          CLEAR ls_finding_out.
-          APPEND INITIAL LINE TO lt_findings_rap ASSIGNING <ls_finding_rap>.
-          TRY.
-              <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
-            CATCH cx_uuid_error.
-          ENDTRY.
-          <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
-          <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
-          <ls_finding_rap>-cmritemuuid   = <ls_item>-cmritemuuid.
-          <ls_finding_rap>-itemposition  = <ls_item>-itemposition.
-          <ls_finding_rap>-findingstatus = 'INCOMPLETE'.
-          <ls_finding_rap>-findingtype   = 'MANDATORY_FIELD'.
-          <ls_finding_rap>-fieldname     = 'NATUREOFGOODS'.
-          <ls_finding_rap>-findingmsg    = |Nature of goods is missing for item { <ls_item>-itemposition }|.
-          <ls_finding_rap>-createdby     = sy-uname.
-          GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-          <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
-          <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                               cmruuid       = if_abap_behv=>mk-on
-                                               cmrid         = if_abap_behv=>mk-on
-                                               cmritemuuid   = if_abap_behv=>mk-on
-                                               itemposition  = if_abap_behv=>mk-on
-                                               findingstatus = if_abap_behv=>mk-on
-                                               findingtype   = if_abap_behv=>mk-on
-                                               fieldname     = if_abap_behv=>mk-on
-                                               findingmsg    = if_abap_behv=>mk-on
-                                               createdby     = if_abap_behv=>mk-on
-                                               createdat     = if_abap_behv=>mk-on ).
-          lv_cid_counter += 1.
-          MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
-          APPEND ls_finding_out TO lt_findings_out.
-        ENDIF.
-
-        IF <ls_item>-grossweight <= 0.
-          CLEAR ls_finding_out.
-          APPEND INITIAL LINE TO lt_findings_rap ASSIGNING <ls_finding_rap>.
-          TRY.
-              <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
-            CATCH cx_uuid_error.
-          ENDTRY.
-          <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
-          <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
-          <ls_finding_rap>-cmritemuuid   = <ls_item>-cmritemuuid.
-          <ls_finding_rap>-itemposition  = <ls_item>-itemposition.
-          <ls_finding_rap>-findingstatus = 'INCOMPLETE'.
-          <ls_finding_rap>-findingtype   = 'WEIGHT_CHECK'.
-          <ls_finding_rap>-fieldname     = 'GROSSWEIGHT'.
-          <ls_finding_rap>-findingmsg    = |Gross weight must be greater than zero for item { <ls_item>-itemposition }|.
-          <ls_finding_rap>-createdby     = sy-uname.
-          GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-          <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
-          <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                               cmruuid       = if_abap_behv=>mk-on
-                                               cmrid         = if_abap_behv=>mk-on
-                                               cmritemuuid   = if_abap_behv=>mk-on
-                                               itemposition  = if_abap_behv=>mk-on
-                                               findingstatus = if_abap_behv=>mk-on
-                                               findingtype   = if_abap_behv=>mk-on
-                                               fieldname     = if_abap_behv=>mk-on
-                                               findingmsg    = if_abap_behv=>mk-on
-                                               createdby     = if_abap_behv=>mk-on
-                                               createdat     = if_abap_behv=>mk-on ).
-          lv_cid_counter += 1.
-          MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
-          APPEND ls_finding_out TO lt_findings_out.
-        ENDIF.
-
-        IF <ls_item>-weightunitfield IS INITIAL.
-          CLEAR ls_finding_out.
-          APPEND INITIAL LINE TO lt_findings_rap ASSIGNING <ls_finding_rap>.
-          TRY.
-              <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
-            CATCH cx_uuid_error.
-          ENDTRY.
-          <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
-          <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
-          <ls_finding_rap>-cmritemuuid   = <ls_item>-cmritemuuid.
-          <ls_finding_rap>-itemposition  = <ls_item>-itemposition.
-          <ls_finding_rap>-findingstatus = 'INCOMPLETE'.
-          <ls_finding_rap>-findingtype   = 'MANDATORY_FIELD'.
-          <ls_finding_rap>-fieldname     = 'WEIGHTUNITFIELD'.
-          <ls_finding_rap>-findingmsg    = |Weight unit is missing for item { <ls_item>-itemposition }|.
-          <ls_finding_rap>-createdby     = sy-uname.
-          GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-          <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
-          <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                               cmruuid       = if_abap_behv=>mk-on
-                                               cmrid         = if_abap_behv=>mk-on
-                                               cmritemuuid   = if_abap_behv=>mk-on
-                                               itemposition  = if_abap_behv=>mk-on
-                                               findingstatus = if_abap_behv=>mk-on
-                                               findingtype   = if_abap_behv=>mk-on
-                                               fieldname     = if_abap_behv=>mk-on
-                                               findingmsg    = if_abap_behv=>mk-on
-                                               createdby     = if_abap_behv=>mk-on
-                                               createdat     = if_abap_behv=>mk-on ).
-          lv_cid_counter += 1.
-          MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
-          APPEND ls_finding_out TO lt_findings_out.
-        ENDIF.
-
-        IF line_exists( lt_alerts[ cmritemuuid = <ls_item>-cmritemuuid ] ).
-          IF <ls_item>-unitednationnumber IS INITIAL.
-            CLEAR ls_finding_out.
-            APPEND INITIAL LINE TO lt_findings_rap ASSIGNING <ls_finding_rap>.
-            TRY.
-                <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
-              CATCH cx_uuid_error.
-            ENDTRY.
-            <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
-            <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
-            <ls_finding_rap>-cmritemuuid   = <ls_item>-cmritemuuid.
-            <ls_finding_rap>-itemposition  = <ls_item>-itemposition.
-            <ls_finding_rap>-findingstatus = 'INCOMPLETE'.
-            <ls_finding_rap>-findingtype   = 'DG_FIELDS'.
-            <ls_finding_rap>-fieldname     = 'UNITEDNATIONNUMBER'.
-            <ls_finding_rap>-findingmsg    = |UN number required for dangerous goods item { <ls_item>-itemposition }|.
-            <ls_finding_rap>-createdby     = sy-uname.
-            GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-            <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
-            <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                                 cmruuid       = if_abap_behv=>mk-on
-                                                 cmrid         = if_abap_behv=>mk-on
-                                                 cmritemuuid   = if_abap_behv=>mk-on
-                                                 itemposition  = if_abap_behv=>mk-on
-                                                 findingstatus = if_abap_behv=>mk-on
-                                                 findingtype   = if_abap_behv=>mk-on
-                                                 fieldname     = if_abap_behv=>mk-on
-                                                 findingmsg    = if_abap_behv=>mk-on
-                                                 createdby     = if_abap_behv=>mk-on
-                                                 createdat     = if_abap_behv=>mk-on ).
-            lv_cid_counter += 1.
-            MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
-            APPEND ls_finding_out TO lt_findings_out.
-          ENDIF.
-
-          IF <ls_item>-hazardclass IS INITIAL.
-            CLEAR ls_finding_out.
-            APPEND INITIAL LINE TO lt_findings_rap ASSIGNING <ls_finding_rap>.
-            TRY.
-                <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
-              CATCH cx_uuid_error.
-            ENDTRY.
-            <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
-            <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
-            <ls_finding_rap>-cmritemuuid   = <ls_item>-cmritemuuid.
-            <ls_finding_rap>-itemposition  = <ls_item>-itemposition.
-            <ls_finding_rap>-findingstatus = 'INCOMPLETE'.
-            <ls_finding_rap>-findingtype   = 'DG_FIELDS'.
-            <ls_finding_rap>-fieldname     = 'HAZARDCLASS'.
-            <ls_finding_rap>-findingmsg    = |Hazard class required for dangerous goods item { <ls_item>-itemposition }|.
-            <ls_finding_rap>-createdby     = sy-uname.
-            GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-            <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
-            <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                                 cmruuid       = if_abap_behv=>mk-on
-                                                 cmrid         = if_abap_behv=>mk-on
-                                                 cmritemuuid   = if_abap_behv=>mk-on
-                                                 itemposition  = if_abap_behv=>mk-on
-                                                 findingstatus = if_abap_behv=>mk-on
-                                                 findingtype   = if_abap_behv=>mk-on
-                                                 fieldname     = if_abap_behv=>mk-on
-                                                 findingmsg    = if_abap_behv=>mk-on
-                                                 createdby     = if_abap_behv=>mk-on
-                                                 createdat     = if_abap_behv=>mk-on ).
-            lv_cid_counter += 1.
-            MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
-            APPEND ls_finding_out TO lt_findings_out.
-          ENDIF.
-
-          IF <ls_item>-packinggroup IS INITIAL.
-            CLEAR ls_finding_out.
-            APPEND INITIAL LINE TO lt_findings_rap ASSIGNING <ls_finding_rap>.
-            TRY.
-                <ls_finding_rap>-findinguuid = cl_system_uuid=>create_uuid_x16_static( ).
-              CATCH cx_uuid_error.
-            ENDTRY.
-            <ls_finding_rap>-cmruuid       = <ls_hdr>-cmruuid.
-            <ls_finding_rap>-cmrid         = <ls_hdr>-cmrid.
-            <ls_finding_rap>-cmritemuuid   = <ls_item>-cmritemuuid.
-            <ls_finding_rap>-itemposition  = <ls_item>-itemposition.
-            <ls_finding_rap>-findingstatus = 'INCOMPLETE'.
-            <ls_finding_rap>-findingtype   = 'DG_FIELDS'.
-            <ls_finding_rap>-fieldname     = 'PACKINGGROUP'.
-            <ls_finding_rap>-findingmsg    = |Packing group required for dangerous goods item { <ls_item>-itemposition }|.
-            <ls_finding_rap>-createdby     = sy-uname.
-            GET TIME STAMP FIELD <ls_finding_rap>-createdat.
-            <ls_finding_rap>-%cid     = |FIND{ lv_cid_counter }|.
-            <ls_finding_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                                 cmruuid       = if_abap_behv=>mk-on
-                                                 cmrid         = if_abap_behv=>mk-on
-                                                 cmritemuuid   = if_abap_behv=>mk-on
-                                                 itemposition  = if_abap_behv=>mk-on
-                                                 findingstatus = if_abap_behv=>mk-on
-                                                 findingtype   = if_abap_behv=>mk-on
-                                                 fieldname     = if_abap_behv=>mk-on
-                                                 findingmsg    = if_abap_behv=>mk-on
-                                                 createdby     = if_abap_behv=>mk-on
-                                                 createdat     = if_abap_behv=>mk-on ).
-            lv_cid_counter += 1.
-            MOVE-CORRESPONDING <ls_finding_rap> TO ls_finding_out.
-            APPEND ls_finding_out TO lt_findings_out.
-          ENDIF.
-        ENDIF.
-
-      ENDLOOP.
-
-      APPEND INITIAL LINE TO lt_cmr_status ASSIGNING FIELD-SYMBOL(<ls_status>).
-      <ls_status>-cmruuid = <ls_hdr>-cmruuid.
-      <ls_status>-cmrid   = <ls_hdr>-cmrid.
-
-      IF line_exists( lt_findings_out[ cmruuid       = <ls_hdr>-cmruuid
-                                       findingstatus = 'INVALID' ] ).
-        <ls_status>-overallstatus = 'INVALID'.
-      ELSE.
-        IF line_exists( lt_findings_out[ cmruuid = <ls_hdr>-cmruuid ] ).
-          <ls_status>-overallstatus = 'INCOMPLETE'.
-        ELSE.
-          <ls_status>-overallstatus = 'VALID'.
-        ENDIF.
-      ENDIF.
-
-    ENDLOOP.
-
-    IF lt_findings_rap IS NOT INITIAL.
-      MODIFY ENTITIES OF zr_pru_cmr_valid
-             ENTITY zrprucmrvalid
-             CREATE FROM lt_findings_rap
-             " TODO: variable is assigned but never used (ABAP cleaner)
-             MAPPED DATA(ls_mapped)
-             FAILED DATA(ls_failed).
-      IF ls_failed IS NOT INITIAL.
-        ev_error_flag = abap_true.
-        RETURN.
-      ENDIF.
+  METHOD validate_item_dg_fields.
+    IF NOT line_exists( it_alerts[ cmritemuuid = is_item-cmritemuuid ] ).
+      RETURN.
     ENDIF.
 
-    APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv>).
+    IF is_item-unitednationnumber IS INITIAL.
+      add_finding_to_output( EXPORTING is_finding_rap = VALUE #(
+                                   findinguuid   = cl_system_uuid=>create_uuid_x16_static( )
+                                   cmruuid       = is_header-cmruuid
+                                   cmrid         = is_header-cmrid
+                                   cmritemuuid   = is_item-cmritemuuid
+                                   itemposition  = is_item-itemposition
+                                   findingstatus = 'INCOMPLETE'
+                                   findingtype   = 'DG_FIELDS'
+                                   fieldname     = 'UNITEDNATIONNUMBER'
+                                   findingmsg    = |UN number required for dangerous goods item { is_item-itemposition }|
+                                   createdby     = sy-uname
+                                   createdat     = VALUE #( ) )
+                             CHANGING  ct_findings    = ct_findings
+                                       cv_cid_counter = cv_cid_counter ).
+      DATA(ls_latest) = ct_findings_rap[ lines( ct_findings_rap ) ].
+      ls_latest-%cid     = |FIND{ cv_cid_counter }|.
+      ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                    cmruuid       = if_abap_behv=>mk-on
+                                    cmrid         = if_abap_behv=>mk-on
+                                    cmritemuuid   = if_abap_behv=>mk-on
+                                    itemposition  = if_abap_behv=>mk-on
+                                    findingstatus = if_abap_behv=>mk-on
+                                    findingtype   = if_abap_behv=>mk-on
+                                    fieldname     = if_abap_behv=>mk-on
+                                    findingmsg    = if_abap_behv=>mk-on
+                                    createdby     = if_abap_behv=>mk-on
+                                    createdat     = if_abap_behv=>mk-on ).
+      APPEND ls_latest TO ct_findings_rap.
+      cv_cid_counter += 1.
+    ENDIF.
+
+    IF is_item-hazardclass IS INITIAL.
+      add_finding_to_output( EXPORTING is_finding_rap = VALUE #(
+                                   findinguuid   = cl_system_uuid=>create_uuid_x16_static( )
+                                   cmruuid       = is_header-cmruuid
+                                   cmrid         = is_header-cmrid
+                                   cmritemuuid   = is_item-cmritemuuid
+                                   itemposition  = is_item-itemposition
+                                   findingstatus = 'INCOMPLETE'
+                                   findingtype   = 'DG_FIELDS'
+                                   fieldname     = 'HAZARDCLASS'
+                                   findingmsg    = |Hazard class required for dangerous goods item { is_item-itemposition }|
+                                   createdby     = sy-uname
+                                   createdat     = VALUE #( ) )
+                             CHANGING  ct_findings    = ct_findings
+                                       cv_cid_counter = cv_cid_counter ).
+      ls_latest = ct_findings_rap[ lines( ct_findings_rap ) ].
+      ls_latest-%cid     = |FIND{ cv_cid_counter }|.
+      ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                    cmruuid       = if_abap_behv=>mk-on
+                                    cmrid         = if_abap_behv=>mk-on
+                                    cmritemuuid   = if_abap_behv=>mk-on
+                                    itemposition  = if_abap_behv=>mk-on
+                                    findingstatus = if_abap_behv=>mk-on
+                                    findingtype   = if_abap_behv=>mk-on
+                                    fieldname     = if_abap_behv=>mk-on
+                                    findingmsg    = if_abap_behv=>mk-on
+                                    createdby     = if_abap_behv=>mk-on
+                                    createdat     = if_abap_behv=>mk-on ).
+      APPEND ls_latest TO ct_findings_rap.
+      cv_cid_counter += 1.
+    ENDIF.
+
+    IF is_item-packinggroup IS INITIAL.
+      add_finding_to_output( EXPORTING is_finding_rap = VALUE #(
+                                   findinguuid   = cl_system_uuid=>create_uuid_x16_static( )
+                                   cmruuid       = is_header-cmruuid
+                                   cmrid         = is_header-cmrid
+                                   cmritemuuid   = is_item-cmritemuuid
+                                   itemposition  = is_item-itemposition
+                                   findingstatus = 'INCOMPLETE'
+                                   findingtype   = 'DG_FIELDS'
+                                   fieldname     = 'PACKINGGROUP'
+                                   findingmsg    = |Packing group required for dangerous goods item { is_item-itemposition }|
+                                   createdby     = sy-uname
+                                   createdat     = VALUE #( ) )
+                             CHANGING  ct_findings    = ct_findings
+                                       cv_cid_counter = cv_cid_counter ).
+      ls_latest = ct_findings_rap[ lines( ct_findings_rap ) ].
+      ls_latest-%cid     = |FIND{ cv_cid_counter }|.
+      ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                    cmruuid       = if_abap_behv=>mk-on
+                                    cmrid         = if_abap_behv=>mk-on
+                                    cmritemuuid   = if_abap_behv=>mk-on
+                                    itemposition  = if_abap_behv=>mk-on
+                                    findingstatus = if_abap_behv=>mk-on
+                                    findingtype   = if_abap_behv=>mk-on
+                                    fieldname     = if_abap_behv=>mk-on
+                                    findingmsg    = if_abap_behv=>mk-on
+                                    createdby     = if_abap_behv=>mk-on
+                                    createdat     = if_abap_behv=>mk-on ).
+      APPEND ls_latest TO ct_findings_rap.
+      cv_cid_counter += 1.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD calculate_cmr_status.
+    APPEND INITIAL LINE TO ct_status ASSIGNING FIELD-SYMBOL(<ls_status>).
+    <ls_status>-cmruuid = is_header-cmruuid.
+    <ls_status>-cmrid   = is_header-cmrid.
+
+    IF line_exists( it_findings[ cmruuid       = is_header-cmruuid
+                                 findingstatus = 'INVALID' ] ).
+      <ls_status>-overallstatus = 'INVALID'.
+    ELSE.
+      IF line_exists( it_findings[ cmruuid = is_header-cmruuid ] ).
+        <ls_status>-overallstatus = 'INCOMPLETE'.
+      ELSE.
+        <ls_status>-overallstatus = 'VALID'.
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD persist_validation_findings.
+    IF it_findings_rap IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    MODIFY ENTITIES OF zr_pru_cmr_valid
+           ENTITY zrprucmrvalid
+           CREATE FROM it_findings_rap
+           MAPPED DATA(ls_mapped)
+           FAILED DATA(ls_failed).
+
+    IF ls_failed IS NOT INITIAL.
+      ev_error_flag = abap_true.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD append_validation_output.
+    APPEND INITIAL LINE TO ct_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv>).
     <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-cmrstatus-field_name.
     <ls_kv>-type  = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name.
-    <ls_kv>-value = /ui2/cl_json=>serialize( data          = lt_cmr_status
+    <ls_kv>-value = /ui2/cl_json=>serialize( data          = it_cmr_status
                                              hex_as_base64 = abap_false
                                              compress      = abap_true ).
 
-    APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING <ls_kv>.
+    APPEND INITIAL LINE TO ct_key_value_pairs ASSIGNING <ls_kv>.
     <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-cmrfinding-field_name.
     <ls_kv>-type  = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name.
-    <ls_kv>-value = /ui2/cl_json=>serialize( data          = lt_findings_out
+    <ls_kv>-value = /ui2/cl_json=>serialize( data          = it_cmr_findings
                                              hex_as_base64 = abap_false
                                              compress      = abap_true ).
-
-    es_output = NEW zpru_tt_key_value( et_key_value_pairs ).
   ENDMETHOD.
+
 ENDCLASS.
 
 
 CLASS lcl_adf_create_inb_delivery IMPLEMENTATION.
+
   METHOD execute_code_int.
-    DATA lt_headers_all              TYPE zpru_if_computer_vision=>tt_inb_delivery_header_context.
-    DATA lt_items_all                TYPE zpru_if_computer_vision=>tt_inb_delivery_item_context.
-    DATA lt_inb_delivery_create_head TYPE TABLE FOR CREATE zprur_inbhdr\\inbhdr.
-    DATA lt_inb_delivery_create_item TYPE TABLE FOR CREATE zprur_inbhdr\\inbhdr\_inbitm.
-    DATA lt_inb_delivery_header_ctx  TYPE zpru_if_computer_vision=>tt_inb_delivery_header_context.
-    DATA lt_inb_delivery_item_ctx    TYPE zpru_if_computer_vision=>tt_inb_delivery_item_context.
-    DATA lt_cmr_header               TYPE zpru_if_computer_vision=>tt_cmr_header_context.
-    DATA lt_cmr_item                 TYPE zpru_if_computer_vision=>tt_cmr_item_context.
+    DATA: lt_cmr_header TYPE zpru_if_computer_vision=>tt_cmr_header_context,
+          lt_cmr_item   TYPE zpru_if_computer_vision=>tt_cmr_item_context.
 
-    FIELD-SYMBOLS <ls_inb_delivery_create> TYPE zpru_if_computer_vision=>ts_inb_delivery_create_request.
-    FIELD-SYMBOLS <ls_cmr>                 TYPE LINE OF zpru_if_computer_vision=>tt_cmr_header_context.
-    FIELD-SYMBOLS <ls_hdr_out>             TYPE LINE OF zpru_if_computer_vision=>tt_inb_delivery_header_context.
-    FIELD-SYMBOLS <ls_cmr_item>            TYPE LINE OF zpru_if_computer_vision=>tt_cmr_item_context.
-    FIELD-SYMBOLS <ls_item_out>            TYPE LINE OF zpru_if_computer_vision=>tt_inb_delivery_item_context.
+    deserialize_inb_delivery_input( EXPORTING is_input    = is_input
+                                    IMPORTING et_cmr_header = lt_cmr_header
+                                              et_cmr_item   = lt_cmr_item ).
 
-    ASSIGN is_input->* TO <ls_inb_delivery_create>.
+    DATA: lt_headers_all TYPE zpru_if_computer_vision=>tt_inb_delivery_header_context,
+          lt_items_all   TYPE zpru_if_computer_vision=>tt_inb_delivery_item_context.
+
+    map_cmr_to_delivery_content( EXPORTING it_cmr_header = lt_cmr_header
+                                           it_cmr_item   = lt_cmr_item
+                                 IMPORTING et_headers_all = lt_headers_all
+                                           et_items_all   = lt_items_all ).
+
+    DATA(lt_create_head) = prepare_delivery_header_entities( lt_headers_all ).
+    DATA(lt_create_item) = prepare_delivery_item_entities( lt_items_all ).
+
+    IF lt_create_head IS INITIAL.
+      RAISE EXCEPTION NEW zpru_cx_agent_core( ).
+    ENDIF.
+
+    DATA: lt_delivery_header_ctx TYPE zpru_if_computer_vision=>tt_inb_delivery_header_context,
+          lt_delivery_item_ctx   TYPE zpru_if_computer_vision=>tt_inb_delivery_item_context.
+
+    persist_inb_delivery_via_rap( EXPORTING it_create_header = lt_create_head
+                                            it_create_item   = lt_create_item
+                                  IMPORTING et_mapped_header = lt_delivery_header_ctx
+                                            et_mapped_item   = lt_delivery_item_ctx
+                                  CHANGING  ev_error_flag    = ev_error_flag ).
+
+    IF ev_error_flag = abap_true.
+      RETURN.
+    ENDIF.
+
+    append_inb_delivery_output( EXPORTING it_delivery_headers = lt_delivery_header_ctx
+                                          it_delivery_items   = lt_delivery_item_ctx
+                                CHANGING  ct_key_value_pairs  = et_key_value_pairs ).
+
+    es_output = NEW zpru_tt_key_value( et_key_value_pairs ).
+  ENDMETHOD.
+
+  METHOD deserialize_inb_delivery_input.
+    FIELD-SYMBOLS <ls_input> TYPE zpru_if_computer_vision=>ts_inb_delivery_create_request.
+    ASSIGN is_input->* TO <ls_input>.
     IF sy-subrc <> 0.
       RAISE EXCEPTION NEW zpru_cx_agent_core( ).
     ENDIF.
-    /ui2/cl_json=>deserialize( EXPORTING json = <ls_inb_delivery_create>-cmrheaders
-                                         hex_as_base64 = abap_false
-                               CHANGING  data = lt_cmr_header ).
 
-    /ui2/cl_json=>deserialize( EXPORTING json = <ls_inb_delivery_create>-cmritems
-                                         hex_as_base64 = abap_false
-                               CHANGING  data = lt_cmr_item ).
+    /ui2/cl_json=>deserialize( EXPORTING json           = <ls_input>-cmrheaders
+                                         hex_as_base64  = abap_false
+                               CHANGING  data           = et_cmr_header ).
+    /ui2/cl_json=>deserialize( EXPORTING json           = <ls_input>-cmritems
+                                         hex_as_base64  = abap_false
+                               CHANGING  data           = et_cmr_item ).
+  ENDMETHOD.
 
-    SELECT MAX( deliveryid ) FROM zprur_inbhdr
-      INTO @DATA(lv_max_deliveryid).
+  METHOD assign_delivery_ids.
+    SELECT MAX( deliveryid ) FROM zprur_inbhdr INTO @DATA(lv_max_deliveryid).
+    DATA(lv_next_num) = CONV i( lv_max_deliveryid ).
 
-    DATA(lv_next_deliveryid_num) = CONV i( lv_max_deliveryid ).
+    LOOP AT ct_headers ASSIGNING FIELD-SYMBOL(<ls_hdr>).
+      lv_next_num += 1.
+      <ls_hdr>-deliveryid = lv_next_num.
+    ENDLOOP.
+  ENDMETHOD.
 
-    LOOP AT lt_cmr_header ASSIGNING <ls_cmr>.
+  METHOD map_cmr_to_delivery_content.
+    assign_delivery_ids( CHANGING ct_headers = et_headers_all
+                                  ct_items   = et_items_all ).
 
-      lv_next_deliveryid_num += 1.
-      APPEND INITIAL LINE TO lt_headers_all ASSIGNING <ls_hdr_out>.
+    LOOP AT it_cmr_header ASSIGNING FIELD-SYMBOL(<ls_cmr>).
+      APPEND INITIAL LINE TO et_headers_all ASSIGNING FIELD-SYMBOL(<ls_hdr_out>).
+
+      DATA(lv_next_deliveryid_num) = CONV i( <ls_cmr>-cmrid ).
       <ls_hdr_out>-deliveryid   = lv_next_deliveryid_num.
       <ls_hdr_out>-cmrreference = <ls_cmr>-cmrid.
       <ls_hdr_out>-vendor       = <ls_cmr>-senderinfo.
@@ -1712,8 +1918,8 @@ CLASS lcl_adf_create_inb_delivery IMPLEMENTATION.
       <ls_hdr_out>-arrivalplace = <ls_cmr>-deliveryplace.
       <ls_hdr_out>-deliverydate = <ls_cmr>-takingoverdate.
 
-      LOOP AT lt_cmr_item ASSIGNING <ls_cmr_item>.
-        APPEND INITIAL LINE TO lt_items_all ASSIGNING <ls_item_out>.
+      LOOP AT it_cmr_item ASSIGNING FIELD-SYMBOL(<ls_cmr_item>).
+        APPEND INITIAL LINE TO et_items_all ASSIGNING FIELD-SYMBOL(<ls_item_out>).
         <ls_item_out>-deliveryid   = <ls_hdr_out>-deliveryid.
         <ls_item_out>-itempos      = <ls_cmr_item>-itemposition.
         <ls_item_out>-materialdesc = <ls_cmr_item>-natureofgoods.
@@ -1724,66 +1930,69 @@ CLASS lcl_adf_create_inb_delivery IMPLEMENTATION.
         <ls_item_out>-hazardclass  = <ls_cmr_item>-hazardclass.
       ENDLOOP.
     ENDLOOP.
+  ENDMETHOD.
 
-    DATA(lv_item_cid) = 1.
-    LOOP AT lt_headers_all ASSIGNING FIELD-SYMBOL(<ls_header_entity>).
+  METHOD prepare_delivery_header_entities.
+    LOOP AT it_headers ASSIGNING FIELD-SYMBOL(<ls_header>).
+      APPEND INITIAL LINE TO rt_create ASSIGNING FIELD-SYMBOL(<ls_entity>).
+      <ls_entity>-%cid         = '1'.
+      <ls_entity>-deliveryid   = <ls_header>-deliveryid.
+      <ls_entity>-vendor       = <ls_header>-vendor.
+      <ls_entity>-consignee    = <ls_header>-consignee.
+      <ls_entity>-arrivalplace = <ls_header>-arrivalplace.
+      <ls_entity>-deliverydate = <ls_header>-deliverydate.
+      <ls_entity>-cmrreference = <ls_header>-cmrreference.
+      <ls_entity>-%control-deliveryid   = if_abap_behv=>mk-on.
+      <ls_entity>-%control-vendor       = if_abap_behv=>mk-on.
+      <ls_entity>-%control-consignee    = if_abap_behv=>mk-on.
+      <ls_entity>-%control-arrivalplace = if_abap_behv=>mk-on.
+      <ls_entity>-%control-deliverydate = if_abap_behv=>mk-on.
+      <ls_entity>-%control-cmrreference = if_abap_behv=>mk-on.
+    ENDLOOP.
+  ENDMETHOD.
 
-      APPEND INITIAL LINE TO lt_inb_delivery_create_head ASSIGNING FIELD-SYMBOL(<ls_create_head>).
-      <ls_create_head>-%cid         = '1'.
-      <ls_create_head>-deliveryid   = <ls_header_entity>-deliveryid.
-      <ls_create_head>-vendor       = <ls_header_entity>-vendor.
-      <ls_create_head>-consignee    = <ls_header_entity>-consignee.
-      <ls_create_head>-arrivalplace = <ls_header_entity>-arrivalplace.
-      <ls_create_head>-deliverydate = <ls_header_entity>-deliverydate.
-      <ls_create_head>-cmrreference = <ls_header_entity>-cmrreference.
-      <ls_create_head>-%control-deliveryid   = if_abap_behv=>mk-on.
-      <ls_create_head>-%control-vendor       = if_abap_behv=>mk-on.
-      <ls_create_head>-%control-consignee    = if_abap_behv=>mk-on.
-      <ls_create_head>-%control-arrivalplace = if_abap_behv=>mk-on.
-      <ls_create_head>-%control-deliverydate = if_abap_behv=>mk-on.
-      <ls_create_head>-%control-cmrreference = if_abap_behv=>mk-on.
+  METHOD prepare_delivery_item_entities.
+    DATA(lv_cid) = 1.
 
-      LOOP AT lt_items_all ASSIGNING FIELD-SYMBOL(<ls_item_entity>)
-           WHERE deliveryid = <ls_header_entity>-deliveryid.
-        APPEND INITIAL LINE TO lt_inb_delivery_create_item ASSIGNING FIELD-SYMBOL(<ls_create_item>).
-        <ls_create_item>-%cid_ref = '1'.
-        APPEND INITIAL LINE TO <ls_create_item>-%target ASSIGNING FIELD-SYMBOL(<ls_item_target>).
-        <ls_item_target>-deliveryid   = <ls_item_entity>-deliveryid.
-        <ls_item_target>-itempos      = <ls_item_entity>-itempos.
-        <ls_item_target>-materialdesc = <ls_item_entity>-materialdesc.
-        <ls_item_target>-quantity     = <ls_item_entity>-quantity.
-        <ls_item_target>-unit         = <ls_item_entity>-unit.
-        <ls_item_target>-grossweight  = <ls_item_entity>-grossweight.
-        <ls_item_target>-weightunit   = <ls_item_entity>-weightunit.
-        <ls_item_target>-hazardclass  = <ls_item_entity>-hazardclass.
-        <ls_item_target>-%cid         = lv_item_cid.
+    LOOP AT it_items ASSIGNING FIELD-SYMBOL(<ls_item>)
+         GROUP BY ( deliveryid = <ls_item>-deliveryid )
+         ASSIGNING FIELD-SYMBOL(<group>).
+      APPEND INITIAL LINE TO rt_create ASSIGNING FIELD-SYMBOL(<ls_create_item>).
+      <ls_create_item>-%cid_ref = '1'.
 
-        <ls_item_target>-%control-deliveryid   = if_abap_behv=>mk-on.
-        <ls_item_target>-%control-itempos      = if_abap_behv=>mk-on.
-        <ls_item_target>-%control-materialdesc = if_abap_behv=>mk-on.
-        <ls_item_target>-%control-quantity     = if_abap_behv=>mk-on.
-        <ls_item_target>-%control-unit         = if_abap_behv=>mk-on.
-        <ls_item_target>-%control-grossweight  = if_abap_behv=>mk-on.
-        <ls_item_target>-%control-weightunit   = if_abap_behv=>mk-on.
-        <ls_item_target>-%control-hazardclass  = if_abap_behv=>mk-on.
-
-        lv_item_cid += 1.
+      LOOP AT GROUP <group> ASSIGNING FIELD-SYMBOL(<ls_member>).
+        APPEND INITIAL LINE TO <ls_create_item>-%target ASSIGNING FIELD-SYMBOL(<ls_target>).
+        <ls_target>-deliveryid   = <ls_member>-deliveryid.
+        <ls_target>-itempos      = <ls_member>-itempos.
+        <ls_target>-materialdesc = <ls_member>-materialdesc.
+        <ls_target>-quantity     = <ls_member>-quantity.
+        <ls_target>-unit         = <ls_member>-unit.
+        <ls_target>-grossweight  = <ls_member>-grossweight.
+        <ls_target>-weightunit   = <ls_member>-weightunit.
+        <ls_target>-hazardclass  = <ls_member>-hazardclass.
+        <ls_target>-%cid         = lv_cid.
+        <ls_target>-%control-deliveryid   = if_abap_behv=>mk-on.
+        <ls_target>-%control-itempos      = if_abap_behv=>mk-on.
+        <ls_target>-%control-materialdesc = if_abap_behv=>mk-on.
+        <ls_target>-%control-quantity     = if_abap_behv=>mk-on.
+        <ls_target>-%control-unit         = if_abap_behv=>mk-on.
+        <ls_target>-%control-grossweight  = if_abap_behv=>mk-on.
+        <ls_target>-%control-weightunit   = if_abap_behv=>mk-on.
+        <ls_target>-%control-hazardclass  = if_abap_behv=>mk-on.
+        lv_cid += 1.
       ENDLOOP.
     ENDLOOP.
+  ENDMETHOD.
 
-    IF lt_inb_delivery_create_head IS INITIAL.
-      RAISE EXCEPTION NEW zpru_cx_agent_core( ).
-    ENDIF.
-
+  METHOD persist_inb_delivery_via_rap.
     MODIFY ENTITIES OF zprur_inbhdr
            ENTITY inbhdr
-           CREATE FROM lt_inb_delivery_create_head
+           CREATE FROM it_create_header
            ENTITY inbhdr
            CREATE BY \_inbitm
-           FROM lt_inb_delivery_create_item
+           FROM it_create_item
            MAPPED DATA(ls_mapped)
            FAILED DATA(ls_failed)
-           " TODO: variable is assigned but never used (ABAP cleaner)
            REPORTED DATA(ls_reported).
 
     IF ls_failed IS NOT INITIAL.
@@ -1794,175 +2003,85 @@ CLASS lcl_adf_create_inb_delivery IMPLEMENTATION.
     READ ENTITIES OF zprur_inbhdr
          ENTITY inbhdr
          ALL FIELDS WITH CORRESPONDING #( ls_mapped-inbhdr )
-         RESULT DATA(lt_new_inb_headers).
+         RESULT DATA(lt_new_headers).
 
     READ ENTITIES OF zprur_inbhdr
          ENTITY inbitm
          ALL FIELDS WITH CORRESPONDING #( ls_mapped-inbitm )
-         RESULT DATA(lt_new_inb_items).
+         RESULT DATA(lt_new_items).
 
-    lt_inb_delivery_header_ctx = CORRESPONDING #( lt_new_inb_headers MAPPING FROM ENTITY ).
-    lt_inb_delivery_item_ctx = CORRESPONDING #( lt_new_inb_items MAPPING FROM ENTITY ).
-
-    APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_key_value>).
-    <ls_key_value>-name  = zpru_if_computer_vision=>cs_context_field-inbdeliveryheaders-field_name.
-    <ls_key_value>-type  = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name.
-    <ls_key_value>-value = /ui2/cl_json=>serialize( data          = lt_inb_delivery_header_ctx
-                                                    hex_as_base64 = abap_false
-                                                    compress      = abap_true ).
-
-    APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING <ls_key_value>.
-    <ls_key_value>-name  = zpru_if_computer_vision=>cs_context_field-inbdeliveryitems-field_name.
-    <ls_key_value>-type  = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name.
-    <ls_key_value>-value = /ui2/cl_json=>serialize( data          = lt_inb_delivery_item_ctx
-                                                    hex_as_base64 = abap_false
-                                                    compress      = abap_true ).
-
-    es_output = NEW zpru_tt_key_value( et_key_value_pairs ).
+    et_mapped_header = CORRESPONDING #( lt_new_headers MAPPING FROM ENTITY ).
+    et_mapped_item   = CORRESPONDING #( lt_new_items MAPPING FROM ENTITY ).
   ENDMETHOD.
+
+  METHOD append_inb_delivery_output.
+    APPEND INITIAL LINE TO ct_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv>).
+    <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-inbdeliveryheaders-field_name.
+    <ls_kv>-type  = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name.
+    <ls_kv>-value = /ui2/cl_json=>serialize( data          = it_delivery_headers
+                                             hex_as_base64 = abap_false
+                                             compress      = abap_true ).
+
+    APPEND INITIAL LINE TO ct_key_value_pairs ASSIGNING <ls_kv>.
+    <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-inbdeliveryitems-field_name.
+    <ls_kv>-type  = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name.
+    <ls_kv>-value = /ui2/cl_json=>serialize( data          = it_delivery_items
+                                             hex_as_base64 = abap_false
+                                             compress      = abap_true ).
+  ENDMETHOD.
+
 ENDCLASS.
 
 
 CLASS lcl_adf_find_storage_bin IMPLEMENTATION.
+
   METHOD execute_code_int.
-    DATA lt_cmr_headers      TYPE zpru_if_computer_vision=>tt_cmr_header_context.
-    DATA lt_cmr_items        TYPE zpru_if_computer_vision=>tt_cmr_item_context.
-    DATA lt_inb_headers      TYPE zpru_if_computer_vision=>tt_inb_delivery_header_context.
-    DATA lt_inb_items        TYPE zpru_if_computer_vision=>tt_inb_delivery_item_context.
-    DATA lt_storage_bins     TYPE zpru_if_computer_vision=>tt_storage_bin_context.
-    DATA lt_storage_bins_out TYPE zpru_if_computer_vision=>tt_storage_bin_context.
+    DATA(lt_storage_bins) = query_available_bins( ).
 
-    FIELD-SYMBOLS <ls_input> TYPE zpru_if_computer_vision=>ts_find_storage_bin_request.
-
-    ASSIGN is_input->* TO <ls_input>.
-    IF sy-subrc <> 0.
-      RAISE EXCEPTION NEW zpru_cx_agent_core( ).
-    ENDIF.
-
-    IF <ls_input>-cmrheaders IS NOT INITIAL.
-      /ui2/cl_json=>deserialize( EXPORTING json          = <ls_input>-cmrheaders
-                                           hex_as_base64 = abap_false
-                                 CHANGING  data          = lt_cmr_headers ).
-    ENDIF.
-
-    IF <ls_input>-cmritems IS NOT INITIAL.
-      /ui2/cl_json=>deserialize( EXPORTING json          = <ls_input>-cmritems
-                                           hex_as_base64 = abap_false
-                                 CHANGING  data          = lt_cmr_items ).
-    ENDIF.
-
-    IF <ls_input>-inbdeliveryheaders IS NOT INITIAL.
-      /ui2/cl_json=>deserialize( EXPORTING json          = <ls_input>-inbdeliveryheaders
-                                           hex_as_base64 = abap_false
-                                 CHANGING  data          = lt_inb_headers ).
-    ENDIF.
-
-    IF <ls_input>-inbdeliveryitems IS NOT INITIAL.
-      /ui2/cl_json=>deserialize( EXPORTING json          = <ls_input>-inbdeliveryitems
-                                           hex_as_base64 = abap_false
-                                 CHANGING  data          = lt_inb_items ).
-    ENDIF.
-
-    SELECT * FROM zprustorbin
-      WHERE is_blocked = @abap_false
-      ORDER BY bin_id
-      INTO CORRESPONDING FIELDS OF TABLE @lt_storage_bins.
-    IF sy-subrc = 0.
-      lt_storage_bins_out = lt_storage_bins.
-    ELSE.
-      CLEAR lt_storage_bins_out.
-    ENDIF.
-
-    APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv>).
-    <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-storagebins-field_name.
-    <ls_kv>-type  = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name.
-    <ls_kv>-value = /ui2/cl_json=>serialize( data          = lt_storage_bins_out
-                                             hex_as_base64 = abap_false
-                                             compress      = abap_true ).
+    append_storage_bin_output( EXPORTING it_bins            = lt_storage_bins
+                               CHANGING  ct_key_value_pairs = et_key_value_pairs ).
 
     es_output = NEW zpru_tt_key_value( et_key_value_pairs ).
   ENDMETHOD.
+
+  METHOD query_available_bins.
+    SELECT * FROM zprustorbin
+      WHERE is_blocked = @abap_false
+      ORDER BY bin_id
+      INTO CORRESPONDING FIELDS OF TABLE @rt_bins.
+    IF sy-subrc <> 0.
+      CLEAR rt_bins.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD append_storage_bin_output.
+    APPEND INITIAL LINE TO ct_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv>).
+    <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-storagebins-field_name.
+    <ls_kv>-type  = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name.
+    <ls_kv>-value = /ui2/cl_json=>serialize( data          = it_bins
+                                             hex_as_base64 = abap_false
+                                             compress      = abap_true ).
+  ENDMETHOD.
+
 ENDCLASS.
 
 
 CLASS lcl_adf_create_warehouse_task IMPLEMENTATION.
+
   METHOD execute_code_int.
-    DATA lt_inb_headers         TYPE zpru_if_computer_vision=>tt_inb_delivery_header_context.
-    DATA lt_inb_items           TYPE zpru_if_computer_vision=>tt_inb_delivery_item_context.
-    DATA lt_storage_bins        TYPE zpru_if_computer_vision=>tt_storage_bin_context.
-    DATA lt_warehouse_tasks_rap TYPE TABLE FOR CREATE zprur_task\\task.
-    DATA lt_warehouse_tasks_out TYPE zpru_if_computer_vision=>tt_warehouse_task_context.
-    DATA lv_task_counter        TYPE i VALUE 1.
-    DATA lv_max_tanum           TYPE char10.
-    DATA lv_storage_bin         TYPE string.
+    DATA: lt_inb_headers  TYPE zpru_if_computer_vision=>tt_inb_delivery_header_context,
+          lt_inb_items    TYPE zpru_if_computer_vision=>tt_inb_delivery_item_context,
+          lt_storage_bins TYPE zpru_if_computer_vision=>tt_storage_bin_context.
 
-    FIELD-SYMBOLS <ls_input> TYPE zpru_if_computer_vision=>ts_create_whse_task_request.
+    deserialize_wh_task_input( EXPORTING is_input       = is_input
+                               IMPORTING et_inb_headers = lt_inb_headers
+                                         et_inb_items   = lt_inb_items
+                                         et_storage_bins = lt_storage_bins ).
 
-    ASSIGN is_input->* TO <ls_input>.
-    IF sy-subrc <> 0.
-      RAISE EXCEPTION NEW zpru_cx_agent_core( ).
-    ENDIF.
-
-    IF <ls_input>-inbdeliveryheaders IS NOT INITIAL.
-      /ui2/cl_json=>deserialize( EXPORTING json          = <ls_input>-inbdeliveryheaders
-                                           hex_as_base64 = abap_false
-                                 CHANGING  data          = lt_inb_headers ).
-    ENDIF.
-
-    IF <ls_input>-inbdeliveryitems IS NOT INITIAL.
-      /ui2/cl_json=>deserialize( EXPORTING json          = <ls_input>-inbdeliveryitems
-                                           hex_as_base64 = abap_false
-                                 CHANGING  data          = lt_inb_items ).
-    ENDIF.
-
-    IF <ls_input>-storagebins IS NOT INITIAL.
-      /ui2/cl_json=>deserialize( EXPORTING json          = <ls_input>-storagebins
-                                           hex_as_base64 = abap_false
-                                 CHANGING  data          = lt_storage_bins ).
-    ENDIF.
-
-    " Get next task number
-    SELECT MAX( tanum ) FROM zprur_task
-      INTO @lv_max_tanum.
-    DATA(lv_next_tanum_num) = CONV i( lv_max_tanum ) + 1.
-
-    LOOP AT lt_inb_items ASSIGNING FIELD-SYMBOL(<ls_inb_item>).
-      ASSIGN lt_inb_headers[ uuid = <ls_inb_item>-parent_uuid ] TO FIELD-SYMBOL(<ls_inb_header>).
-      IF sy-subrc <> 0.
-        CONTINUE.
-      ENDIF.
-
-      ASSIGN lt_storage_bins[ is_blocked = abap_false ] TO FIELD-SYMBOL(<ls_storage_bin>).
-      IF sy-subrc <> 0.
-        lv_storage_bin = `CLEAR`.
-      ELSE.
-        lv_storage_bin = <ls_storage_bin>-bin_id.
-      ENDIF.
-
-      APPEND INITIAL LINE TO lt_warehouse_tasks_rap ASSIGNING FIELD-SYMBOL(<ls_task_rap>).
-      <ls_task_rap>-%cid       = |TASK{ lv_task_counter }|.
-      <ls_task_rap>-tanum      = lv_next_tanum_num.
-      <ls_task_rap>-deliveryid = <ls_inb_header>-deliveryid.
-      <ls_task_rap>-itempos    = <ls_inb_item>-itempos.
-      <ls_task_rap>-material   = <ls_inb_item>-materialdesc.
-      <ls_task_rap>-quantity   = <ls_inb_item>-quantity.
-      <ls_task_rap>-unit       = <ls_inb_item>-unit.
-      <ls_task_rap>-sourcebin  = 'RECEIVING'.
-      <ls_task_rap>-destbin    = lv_storage_bin.
-      <ls_task_rap>-confstatus = 'O'.
-      <ls_task_rap>-%control   = VALUE #( tanum      = if_abap_behv=>mk-on
-                                          deliveryid = if_abap_behv=>mk-on
-                                          itempos    = if_abap_behv=>mk-on
-                                          material   = if_abap_behv=>mk-on
-                                          quantity   = if_abap_behv=>mk-on
-                                          unit       = if_abap_behv=>mk-on
-                                          sourcebin  = if_abap_behv=>mk-on
-                                          destbin    = if_abap_behv=>mk-on
-                                          confstatus = if_abap_behv=>mk-on ).
-
-      lv_task_counter += 1.
-      lv_next_tanum_num += 1.
-    ENDLOOP.
+    DATA(lt_warehouse_tasks_rap) = build_warehouse_task_entities(
+                                       it_inb_headers  = lt_inb_headers
+                                       it_inb_items    = lt_inb_items
+                                       it_storage_bins = lt_storage_bins ).
 
     IF lt_warehouse_tasks_rap IS INITIAL.
       APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv_empty>).
@@ -1971,12 +2090,99 @@ CLASS lcl_adf_create_warehouse_task IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+    DATA(lt_warehouse_tasks_out) = persist_tasks_via_rap(
+                                       EXPORTING it_tasks      = lt_warehouse_tasks_rap
+                                       CHANGING  ev_error_flag = ev_error_flag ).
+
+    IF ev_error_flag = abap_true.
+      RETURN.
+    ENDIF.
+
+    append_wh_task_output( EXPORTING it_tasks            = lt_warehouse_tasks_out
+                           CHANGING  ct_key_value_pairs  = et_key_value_pairs ).
+
+    es_output = NEW zpru_tt_key_value( et_key_value_pairs ).
+  ENDMETHOD.
+
+  METHOD deserialize_wh_task_input.
+    FIELD-SYMBOLS <ls_input> TYPE zpru_if_computer_vision=>ts_create_whse_task_request.
+    ASSIGN is_input->* TO <ls_input>.
+    IF sy-subrc <> 0.
+      RAISE EXCEPTION NEW zpru_cx_agent_core( ).
+    ENDIF.
+
+    IF <ls_input>-inbdeliveryheaders IS NOT INITIAL.
+      /ui2/cl_json=>deserialize( EXPORTING json           = <ls_input>-inbdeliveryheaders
+                                           hex_as_base64  = abap_false
+                                 CHANGING  data           = et_inb_headers ).
+    ENDIF.
+
+    IF <ls_input>-inbdeliveryitems IS NOT INITIAL.
+      /ui2/cl_json=>deserialize( EXPORTING json           = <ls_input>-inbdeliveryitems
+                                           hex_as_base64  = abap_false
+                                 CHANGING  data           = et_inb_items ).
+    ENDIF.
+
+    IF <ls_input>-storagebins IS NOT INITIAL.
+      /ui2/cl_json=>deserialize( EXPORTING json           = <ls_input>-storagebins
+                                           hex_as_base64  = abap_false
+                                 CHANGING  data           = et_storage_bins ).
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD get_next_task_number.
+    SELECT MAX( tanum ) FROM zprur_task INTO @DATA(lv_max_tanum).
+    rv_next_tanum = CONV i( lv_max_tanum ) + 1.
+  ENDMETHOD.
+
+  METHOD build_warehouse_task_entities.
+    DATA(lv_next_tanum_num) = get_next_task_number( ).
+    DATA(lv_task_counter)   = 1.
+
+    LOOP AT it_inb_items ASSIGNING FIELD-SYMBOL(<ls_inb_item>).
+      ASSIGN it_inb_headers[ uuid = <ls_inb_item>-parent_uuid ] TO FIELD-SYMBOL(<ls_inb_header>).
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
+
+      DATA(lv_storage_bin) = `CLEAR`.
+      ASSIGN it_storage_bins[ is_blocked = abap_false ] TO FIELD-SYMBOL(<ls_storage_bin>).
+      IF sy-subrc = 0.
+        lv_storage_bin = <ls_storage_bin>-bin_id.
+      ENDIF.
+
+      APPEND INITIAL LINE TO rt_tasks ASSIGNING FIELD-SYMBOL(<ls_task>).
+      <ls_task>-%cid       = |TASK{ lv_task_counter }|.
+      <ls_task>-tanum      = lv_next_tanum_num.
+      <ls_task>-deliveryid = <ls_inb_header>-deliveryid.
+      <ls_task>-itempos    = <ls_inb_item>-itempos.
+      <ls_task>-material   = <ls_inb_item>-materialdesc.
+      <ls_task>-quantity   = <ls_inb_item>-quantity.
+      <ls_task>-unit       = <ls_inb_item>-unit.
+      <ls_task>-sourcebin  = 'RECEIVING'.
+      <ls_task>-destbin    = lv_storage_bin.
+      <ls_task>-confstatus = 'O'.
+      <ls_task>-%control   = VALUE #( tanum      = if_abap_behv=>mk-on
+                                      deliveryid = if_abap_behv=>mk-on
+                                      itempos    = if_abap_behv=>mk-on
+                                      material   = if_abap_behv=>mk-on
+                                      quantity   = if_abap_behv=>mk-on
+                                      unit       = if_abap_behv=>mk-on
+                                      sourcebin  = if_abap_behv=>mk-on
+                                      destbin    = if_abap_behv=>mk-on
+                                      confstatus = if_abap_behv=>mk-on ).
+
+      lv_task_counter += 1.
+      lv_next_tanum_num += 1.
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD persist_tasks_via_rap.
     MODIFY ENTITIES OF zprur_task
            ENTITY task
-           CREATE FROM lt_warehouse_tasks_rap
+           CREATE FROM it_tasks
            MAPPED DATA(ls_mapped)
            FAILED DATA(ls_failed)
-           " TODO: variable is assigned but never used (ABAP cleaner)
            REPORTED DATA(ls_reported).
 
     IF ls_failed IS NOT INITIAL.
@@ -1987,23 +2193,25 @@ CLASS lcl_adf_create_warehouse_task IMPLEMENTATION.
     READ ENTITIES OF zprur_task
          ENTITY task
          ALL FIELDS WITH CORRESPONDING #( ls_mapped-task )
-         RESULT DATA(lt_created_tasks_rap).
+         RESULT DATA(lt_created_tasks).
 
-    lt_warehouse_tasks_out = CORRESPONDING #( lt_created_tasks_rap MAPPING FROM ENTITY ).
+    rt_tasks = CORRESPONDING #( lt_created_tasks MAPPING FROM ENTITY ).
+  ENDMETHOD.
 
-    APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv>).
+  METHOD append_wh_task_output.
+    APPEND INITIAL LINE TO ct_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv>).
     <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-warehousetasks-field_name.
     <ls_kv>-type  = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name.
-    <ls_kv>-value = /ui2/cl_json=>serialize( data          = lt_warehouse_tasks_out
+    <ls_kv>-value = /ui2/cl_json=>serialize( data          = it_tasks
                                              hex_as_base64 = abap_false
                                              compress      = abap_true ).
-
-    es_output = NEW zpru_tt_key_value( et_key_value_pairs ).
   ENDMETHOD.
+
 ENDCLASS.
 
 
 CLASS lcl_adf_tool_provider IMPLEMENTATION.
+
   METHOD provide_tool_instance.
     CASE is_tool_master_data-toolname.
       WHEN `CREATE_CMR`.
@@ -2022,10 +2230,12 @@ CLASS lcl_adf_tool_provider IMPLEMENTATION.
         RAISE EXCEPTION NEW zpru_cx_agent_core( ).
     ENDCASE.
   ENDMETHOD.
+
 ENDCLASS.
 
 
 CLASS lcl_adf_tool_info_provider IMPLEMENTATION.
+
   METHOD get_main_tool_info.
 *    rs_main_tool_info-toolname        = is_tool_master_data-toolname.
 *    rs_main_tool_info-tooldescription = is_tool_master_data-tooldesciption.
@@ -2046,10 +2256,12 @@ CLASS lcl_adf_tool_info_provider IMPLEMENTATION.
 *      ( toolpropertyname  = `EXECUTION_TYPE`
 *        toolpropertyvalue = `ABAP` ) ).
   ENDMETHOD.
+
 ENDCLASS.
 
 
 CLASS lcl_adf_schema_provider IMPLEMENTATION.
+
   METHOD get_input_abap_type.
     CASE is_tool_master_data-toolname.
       WHEN `CREATE_CMR`.
@@ -2081,4 +2293,5 @@ CLASS lcl_adf_schema_provider IMPLEMENTATION.
 *    ro_json_schema ?= cl_abap_structdescr=>describe_by_name(
 *      p_name = |\INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_TOOL_INPUT_SCHEMA| ).
   ENDMETHOD.
+
 ENDCLASS.
