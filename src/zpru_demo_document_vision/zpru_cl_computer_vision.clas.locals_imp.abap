@@ -84,7 +84,7 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
       RAISE EXCEPTION NEW zpru_cx_agent_core( ).
     ENDIF.
     /ui2/cl_json=>deserialize( EXPORTING json           = is_input_prompt-string_content
-                                         hex_as_base64  = abap_false
+                                         hex_as_base64 = abap_true
                                CHANGING  data           = <ls_data> ).
   ENDMETHOD.
 
@@ -207,7 +207,7 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
 
   METHOD serialize_payload_to_json.
     rv_json = /ui2/cl_json=>serialize( data          = is_payload
-                                       hex_as_base64 = abap_false
+                                       hex_as_base64 = abap_true
                                        pretty_name   = /ui2/cl_json=>pretty_mode-low_case
                                        compress      = abap_true ).
   ENDMETHOD.
@@ -303,7 +303,7 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
 
         DATA(ls_cmr_create_request) = VALUE zpru_if_computer_vision=>ts_cmr_create_request(
             cmrcreationcontent = /ui2/cl_json=>serialize( data          = lt_creation_content
-                                                          hex_as_base64 = abap_false ) ).
+                                                          hex_as_base64 = abap_true ) ).
 
         er_first_tool_input = NEW zpru_if_computer_vision=>ts_cmr_create_request(
                                   ls_cmr_create_request ).
@@ -314,7 +314,7 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
 
   METHOD parse_think_output_2_cmr_resp.
     /ui2/cl_json=>deserialize( EXPORTING json           = iv_thinking_output
-                                         hex_as_base64  = abap_false
+                                         hex_as_base64 = abap_true
                                CHANGING  data           = rt_response ).
   ENDMETHOD.
 
@@ -383,7 +383,7 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
                                 CHANGING  cs_recognition_output = ls_recognition_output ).
 
     cs_final_response_body-responsecontent = /ui2/cl_json=>serialize( data          = ls_recognition_output
-                                                                       hex_as_base64 = abap_false ).
+                                                                       hex_as_base64 = abap_true ).
     cs_final_response_body-type = `\CLASS=ZBP_R_PRU_MESSAGE\TYPE=TS_RECOGNITION_OUTPUT`.
 
     append_freshest_context( EXPORTING io_controller = io_controller
@@ -443,7 +443,7 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
     SORT io_controller->mt_input_output BY number ASCENDING.
     DATA(ls_input_prompt) = VALUE #( io_controller->mt_input_output[ 1 ]-input_prompt OPTIONAL ).
     /ui2/cl_json=>deserialize( EXPORTING json           = ls_input_prompt-string_content
-                                         hex_as_base64  = abap_false
+                                         hex_as_base64 = abap_true
                                CHANGING  data           = ls_doc_recognition ).
 
     LOOP AT ls_doc_recognition-message ASSIGNING FIELD-SYMBOL(<ls_message>).
@@ -494,7 +494,7 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
 *    DATA(lv_gemini_output) = lo_response->get_text( ).
 *
 *    /ui2/cl_json=>deserialize( EXPORTING json = lv_gemini_output
-*                                hex_as_base64 = abap_false
+*                                hex_as_base64 = abap_true
 *                               CHANGING  data = ls_llm_output ).
 *
 *    DATA(lv_raw_response) = VALUE #( ls_llm_output-candidates[ 1 ]-content-parts[ 1 ]-text OPTIONAL ).
@@ -804,7 +804,7 @@ CLASS lcl_adf_create_cmr IMPLEMENTATION.
     ENDIF.
 
     /ui2/cl_json=>deserialize( EXPORTING json           = <ls_cmr_create>-cmrcreationcontent
-                                         hex_as_base64  = abap_false
+                                         hex_as_base64 = abap_true
                                CHANGING  data           = rt_creation ).
   ENDMETHOD.
 
@@ -891,21 +891,21 @@ CLASS lcl_adf_create_cmr IMPLEMENTATION.
     <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-cmrheaders-field_name.
     <ls_kv>-type  = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name.
     <ls_kv>-value = /ui2/cl_json=>serialize( data          = it_cmr_headers
-                                             hex_as_base64 = abap_false
+                                             hex_as_base64 = abap_true
                                              compress      = abap_true ).
 
     APPEND INITIAL LINE TO ct_key_value_pairs ASSIGNING <ls_kv>.
     <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-cmritems-field_name.
     <ls_kv>-type  = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name.
     <ls_kv>-value = /ui2/cl_json=>serialize( data          = it_cmr_items
-                                             hex_as_base64 = abap_false
+                                             hex_as_base64 = abap_true
                                              compress      = abap_true ).
 
     APPEND INITIAL LINE TO ct_key_value_pairs ASSIGNING <ls_kv>.
     <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-cmrcreationcontent-field_name.
     <ls_kv>-type  = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name.
     <ls_kv>-value = /ui2/cl_json=>serialize( data          = it_creation_content
-                                             hex_as_base64 = abap_false
+                                             hex_as_base64 = abap_true
                                              compress      = abap_true ).
   ENDMETHOD.
 
@@ -971,7 +971,7 @@ CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
     ENDIF.
 
     /ui2/cl_json=>deserialize( EXPORTING json           = <ls_input>-cmritems
-                                         hex_as_base64  = abap_false
+                                         hex_as_base64 = abap_true
                                CHANGING  data           = rt_items ).
   ENDMETHOD.
 
@@ -1229,7 +1229,7 @@ CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
     <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-cmralerts-field_name.
     <ls_kv>-type  = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name.
     <ls_kv>-value = /ui2/cl_json=>serialize( data          = it_alerts
-                                             hex_as_base64 = abap_false
+                                             hex_as_base64 = abap_true
                                              compress      = abap_true ).
   ENDMETHOD.
 
@@ -1350,10 +1350,10 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
     ENDIF.
 
     /ui2/cl_json=>deserialize( EXPORTING json           = <ls_input>-cmrheaders
-                                         hex_as_base64  = abap_false
+                                         hex_as_base64 = abap_true
                                CHANGING  data           = et_headers ).
     /ui2/cl_json=>deserialize( EXPORTING json           = <ls_input>-cmritems
-                                         hex_as_base64  = abap_false
+                                         hex_as_base64 = abap_true
                                CHANGING  data           = et_items ).
   ENDMETHOD.
 
@@ -1934,14 +1934,14 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
     <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-cmrstatus-field_name.
     <ls_kv>-type  = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name.
     <ls_kv>-value = /ui2/cl_json=>serialize( data          = it_cmr_status
-                                             hex_as_base64 = abap_false
+                                             hex_as_base64 = abap_true
                                              compress      = abap_true ).
 
     APPEND INITIAL LINE TO ct_key_value_pairs ASSIGNING <ls_kv>.
     <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-cmrfinding-field_name.
     <ls_kv>-type  = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name.
     <ls_kv>-value = /ui2/cl_json=>serialize( data          = it_cmr_findings
-                                             hex_as_base64 = abap_false
+                                             hex_as_base64 = abap_true
                                              compress      = abap_true ).
   ENDMETHOD.
 
@@ -2001,10 +2001,10 @@ CLASS lcl_adf_create_inb_delivery IMPLEMENTATION.
     ENDIF.
 
     /ui2/cl_json=>deserialize( EXPORTING json           = <ls_input>-cmrheaders
-                                         hex_as_base64  = abap_false
+                                         hex_as_base64 = abap_true
                                CHANGING  data           = et_cmr_header ).
     /ui2/cl_json=>deserialize( EXPORTING json           = <ls_input>-cmritems
-                                         hex_as_base64  = abap_false
+                                         hex_as_base64 = abap_true
                                CHANGING  data           = et_cmr_item ).
   ENDMETHOD.
 
@@ -2134,14 +2134,14 @@ CLASS lcl_adf_create_inb_delivery IMPLEMENTATION.
     <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-inbdeliveryheaders-field_name.
     <ls_kv>-type  = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name.
     <ls_kv>-value = /ui2/cl_json=>serialize( data          = it_delivery_headers
-                                             hex_as_base64 = abap_false
+                                             hex_as_base64 = abap_true
                                              compress      = abap_true ).
 
     APPEND INITIAL LINE TO ct_key_value_pairs ASSIGNING <ls_kv>.
     <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-inbdeliveryitems-field_name.
     <ls_kv>-type  = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name.
     <ls_kv>-value = /ui2/cl_json=>serialize( data          = it_delivery_items
-                                             hex_as_base64 = abap_false
+                                             hex_as_base64 = abap_true
                                              compress      = abap_true ).
   ENDMETHOD.
 
@@ -2174,7 +2174,7 @@ CLASS lcl_adf_find_storage_bin IMPLEMENTATION.
     <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-storagebins-field_name.
     <ls_kv>-type  = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name.
     <ls_kv>-value = /ui2/cl_json=>serialize( data          = it_bins
-                                             hex_as_base64 = abap_false
+                                             hex_as_base64 = abap_true
                                              compress      = abap_true ).
   ENDMETHOD.
 
@@ -2229,19 +2229,19 @@ CLASS lcl_adf_create_warehouse_task IMPLEMENTATION.
 
     IF <ls_input>-inbdeliveryheaders IS NOT INITIAL.
       /ui2/cl_json=>deserialize( EXPORTING json           = <ls_input>-inbdeliveryheaders
-                                           hex_as_base64  = abap_false
+                                           hex_as_base64 = abap_true
                                  CHANGING  data           = et_inb_headers ).
     ENDIF.
 
     IF <ls_input>-inbdeliveryitems IS NOT INITIAL.
       /ui2/cl_json=>deserialize( EXPORTING json           = <ls_input>-inbdeliveryitems
-                                           hex_as_base64  = abap_false
+                                           hex_as_base64 = abap_true
                                  CHANGING  data           = et_inb_items ).
     ENDIF.
 
     IF <ls_input>-storagebins IS NOT INITIAL.
       /ui2/cl_json=>deserialize( EXPORTING json           = <ls_input>-storagebins
-                                           hex_as_base64  = abap_false
+                                           hex_as_base64 = abap_true
                                  CHANGING  data           = et_storage_bins ).
     ENDIF.
   ENDMETHOD.
@@ -2319,7 +2319,7 @@ CLASS lcl_adf_create_warehouse_task IMPLEMENTATION.
     <ls_kv>-name  = zpru_if_computer_vision=>cs_context_field-warehousetasks-field_name.
     <ls_kv>-type  = cl_abap_typedescr=>describe_by_data( p_data = VALUE string( ) )->absolute_name.
     <ls_kv>-value = /ui2/cl_json=>serialize( data          = it_tasks
-                                             hex_as_base64 = abap_false
+                                             hex_as_base64 = abap_true
                                              compress      = abap_true ).
   ENDMETHOD.
 
