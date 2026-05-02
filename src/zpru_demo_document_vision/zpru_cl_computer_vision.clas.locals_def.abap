@@ -137,7 +137,8 @@ CLASS lcl_adf_decision_provider DEFINITION INHERITING FROM zpru_cl_decision_prov
       IMPORTING it_response       TYPE tt_parse_response_root
       RETURNING VALUE(rt_content) TYPE zpru_if_computer_vision=>tt_cmr_create_content.
     METHODS get_axc_service_instance
-      RETURNING VALUE(ro_axc_service) TYPE REF TO zpru_if_axc_service.
+      RETURNING VALUE(ro_axc_service) TYPE REF TO zpru_if_axc_service
+      RAISING   zpru_cx_agent_core.
     METHODS read_execution_data
       IMPORTING iv_run_uuid           TYPE sysuuid_x16
                 iv_query_uuid         TYPE sysuuid_x16
