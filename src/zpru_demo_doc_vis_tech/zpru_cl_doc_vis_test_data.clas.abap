@@ -104,6 +104,7 @@ CLASS zpru_cl_doc_vis_test_data IMPLEMENTATION.
       ROLLBACK WORK.
       RETURN.
     ENDIF.
+
     MODIFY zpru_agent_tool FROM TABLE @lt_agent_tool.
     IF sy-subrc <> 0.
       ROLLBACK WORK.
