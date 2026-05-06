@@ -385,7 +385,6 @@ CLASS lcl_adf_validate_cmr DEFINITION
     METHODS validate_item_dg_fields
       IMPORTING is_header       TYPE zpru_if_computer_vision=>ts_cmr_header_context
                 is_item         TYPE zpru_if_computer_vision=>ts_cmr_item_context
-                it_alerts       TYPE zpru_if_computer_vision=>tt_cmr_alert_context
       CHANGING  ct_findings     TYPE zpru_if_computer_vision=>tt_cmr_finding
                 ct_findings_rap TYPE tt_pru_cmrvalid
                 cv_cid_counter  TYPE i.
@@ -422,9 +421,7 @@ CLASS lcl_adf_create_inb_delivery DEFINITION
       EXPORTING et_cmr_header TYPE zpru_if_computer_vision=>tt_cmr_header_context
                 et_cmr_item   TYPE zpru_if_computer_vision=>tt_cmr_item_context
       RAISING   zpru_cx_agent_core.
-    METHODS assign_delivery_ids
-      CHANGING ct_headers TYPE zpru_if_computer_vision=>tt_inb_delivery_header_context
-               ct_items   TYPE zpru_if_computer_vision=>tt_inb_delivery_item_context.
+
     METHODS map_cmr_to_delivery_content
       IMPORTING it_cmr_header  TYPE zpru_if_computer_vision=>tt_cmr_header_context
                 it_cmr_item    TYPE zpru_if_computer_vision=>tt_cmr_item_context
