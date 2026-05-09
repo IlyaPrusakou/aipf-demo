@@ -2461,25 +2461,35 @@ CLASS lcl_adf_tool_info_provider IMPLEMENTATION.
       WHEN `CREATE_CMR`.
         ev_toolname        = `CREATE_CMR`.
         ev_tooldesciption  = `Create CMR`.
-        ev_toolexplanation = `Parse extracted CMR JSON from LLM response, deserialize creation content, assign sequential CMR IDs, prepare and persist CMR headers and items via RAP entities (zr_pru_cmr_header/zrprucmrheader, zrprucmritem), then append output context fields CMRHEADERS, CMRITEMS, and CMRCREATIONCONTENT as key-value pairs.`.
+        ev_toolexplanation = `Parse extracted CMR JSON from LLM response, deserialize creation content,` &&
+         `assign sequential CMR IDs, prepare and persist CMR headers and items via RAP entities (zr_pru_cmr_header/zrprucmrheader, zrprucmritem), then append out` &&
+         `context fields CMRHEADERS, CMRITEMS, and CMRCREATIONCONTENT as key-value pairs.`.
         ev_tooltype        = zpru_if_adf_type_and_constant=>cs_step_type-abap_code.
 
       WHEN `CLASSIFY_DANGER_GOODS`.
         ev_toolname        = `CLASSIFY_DANGER_GOODS`.
         ev_tooldesciption  = `Dangerous goods classification`.
-        ev_toolexplanation = `Deserialize CMR items from input, then classify each item for dangerous goods by checking explicit fields (hazard class, UN number) and free-text heuristics on nature of goods (explosive, flammable gas/liquid/solid, oxidiser, toxic, infectious, radioactive, corrosive, other hazardous materials). Create alert entities for detected dangerous goods with alert type 'DANGER_GOODS', persist via RAP (zr_pru_cmr_alert/zrprucmralert), and append CMRALERTS context field.`.
+        ev_toolexplanation = `Deserialize CMR items from input, then classify each item for dangerous goods by checking` &&
+        `explicit fields (hazard class, UN number) and free-text heuristics on nature of goods (explosive, flammable gas/liquid/solid, oxidiser,` &&
+        `toxic, infectious, radioactive, corrosive, other hazardous materials). Create alert entities for detected dangerous goods with alert type 'DANGER_GOODS',` &&
+        ` persist via RAP (zr_pru_cmr_alert/zrprucmralert), and append CMRALERTS context field.`.
         ev_tooltype        = zpru_if_adf_type_and_constant=>cs_step_type-abap_code.
 
       WHEN `VALIDATE_CMR`.
         ev_toolname        = `VALIDATE_CMR`.
         ev_tooldesciption  = `Validate CMR`.
-        ev_toolexplanation = `Deserialize CMR headers and items from input, then validate mandatory fields: sender info, consignee info, carrier info, taking-over place, delivery place, taking-over date, currency (when cash on delivery is set), item count, nature of goods, gross weight, weight unit. Also validate dangerous goods fields (UN number, hazard class, packing group). Create findings with status 'INCOMPLETE' or 'INVALID', persist via RAP (zr_pru_cmr_valid/zrprucmrvalid), calculate overall CMR status (VALID/INCOMPLETE/INVALID), and append CMRSTATUS and CMRFINDING context fields.`.
+        ev_toolexplanation = `Deserialize CMR headers and items from input, then validate mandatory fields: sender info, consignee info, carrier info, taking-over place,` &&
+        ` delivery place, taking-over date, currency (when cash on delivery is set), item count` &&
+        ` nature of goods, gross weight, weight unit. Also validate dangerous goods fields (UN number, hazard class, packing group). Create findings with status 'INCOMPLETE' or 'INVALID',` &&
+        ` persist via RAP (zr_pru_cmr_valid/zrprucmrvalid), calculate overall CMR status (VALID/INCOMPLETE/INVALID), and append CMRSTATUS and CMRFINDING context fields.`.
         ev_tooltype        = zpru_if_adf_type_and_constant=>cs_step_type-abap_code.
 
       WHEN `CREATE_INB_DELIVERY`.
         ev_toolname        = `CREATE_INB_DELIVERY`.
         ev_tooldesciption  = `Create Inbound Delivery`.
-        ev_toolexplanation = `Deserialize CMR headers and items, map them to inbound delivery structures by generating sequential delivery IDs, mapping CMR reference, vendor/sender, consignee, arrival/delivery place, and item details (material description, quantity, weight, hazard class). Prepare and persist inbound delivery headers and items via RAP (zprur_inbhdr/inbhdr, inbitm), then append INBDELIVERYHEADERS and INBDELIVERYITEMS context fields.`.
+        ev_toolexplanation = `Deserialize CMR headers and items, map them to inbound delivery structures by generating sequential delivery IDs, mapping CMR reference, vendor/sender, consignee, arrival/delivery place,` &&
+        ` and item details (material description` &&
+        ` quantity, weight, hazard class). Prepare and persist inbound delivery headers and items via RAP (zprur_inbhdr/inbhdr, inbitm), then append INBDELIVERYHEADERS and INBDELIVERYITEMS context fields.`.
         ev_tooltype        = zpru_if_adf_type_and_constant=>cs_step_type-abap_code.
 
       WHEN `FIND_STORAGE_BIN`.
@@ -2491,7 +2501,9 @@ CLASS lcl_adf_tool_info_provider IMPLEMENTATION.
       WHEN `CREATE_WAREHOUSE_TASK`.
         ev_toolname        = `CREATE_WAREHOUSE_TASK`.
         ev_tooldesciption  = `Create Warehouse Task`.
-        ev_toolexplanation = `Deserialize inbound delivery headers, items, and storage bins from input. Generate sequential warehouse task numbers via SELECT MAX(tanum). Build warehouse task entities for each inbound item, assigning the first available non-blocked storage bin as destination, 'RECEIVING' as source, and confirmation status 'O' (open). Persist tasks via RAP (zprur_task/task), then append WAREHOUSETASKS context field.`.
+        ev_toolexplanation = `Deserialize inbound delivery headers, items, and storage bins from input. Generate sequential warehouse task numbers via SELECT MAX(tanum).` &&
+        ` Build warehouse task entities for each inbound item, assigning the first available non-blocked storage bin as destination,` &&
+        ` 'RECEIVING' as source, and confirmation status 'O' (open). Persist tasks via RAP (zprur_task/task), then append WAREHOUSETASKS context field.`.
         ev_tooltype        = zpru_if_adf_type_and_constant=>cs_step_type-abap_code.
 
       WHEN OTHERS.
@@ -2503,93 +2515,76 @@ CLASS lcl_adf_tool_info_provider IMPLEMENTATION.
     CASE is_tool_master_data-toolname.
       WHEN `CREATE_CMR`.
         rt_perameters = VALUE #( BASE rt_perameters
-          ( parameter_name        = `CMRCREATIONCONTENT`
-            parameter_description = `JSON string containing CMR creation content with headers and items extracted from LLM response`
-            parameter_type        = `string`
-            parameter_is_optional = abap_false )
-          ( parameter_name        = `IS_INPUT`
-            parameter_description = `Input structure of type TS_CMR_CREATE_REQUEST with field cmrcreationcontent`
-            parameter_type        = cl_abap_typedescr=>describe_by_data( p_data = VALUE zpru_if_computer_vision=>ts_cmr_create_request( ) )->absolute_name
-            parameter_is_optional = abap_false ) ).
+          ( parametername        = `CMRCREATIONCONTENT`
+            parameterdescription = `JSON string containing CMR creation content with headers and items extracted from LLM response`
+            parametertype        = `string`  )
+          ( parametername        = `IS_INPUT`
+            parameterdescription = `Input structure of type TS_CMR_CREATE_REQUEST with field cmrcreationcontent`
+            parametertype        = cl_abap_typedescr=>describe_by_data( p_data = VALUE zpru_if_computer_vision=>ts_cmr_create_request( ) )->absolute_name
+) ).
 
       WHEN `CLASSIFY_DANGER_GOODS`.
         rt_perameters = VALUE #( BASE rt_perameters
-          ( parameter_name        = `CMRHEADERS`
-            parameter_description = `JSON string with CMR header context data for item classification context`
-            parameter_type        = `string`
-            parameter_is_optional = abap_true )
-          ( parameter_name        = `CMRITEMS`
-            parameter_description = `JSON string with CMR item data to classify for dangerous goods`
-            parameter_type        = `string`
-            parameter_is_optional = abap_false )
-          ( parameter_name        = `CMRCREATIONCONTENT`
-            parameter_description = `JSON string with original CMR creation content for reference`
-            parameter_type        = `string`
-            parameter_is_optional = abap_true ) ).
+          ( parametername        = `CMRHEADERS`
+            parameterdescription = `JSON string with CMR header context data for item classification context`
+            parametertype        = `string`  )
+          ( parametername        = `CMRITEMS`
+            parameterdescription = `JSON string with CMR item data to classify for dangerous goods`
+            parametertype        = `string`  )
+          ( parametername        = `CMRCREATIONCONTENT`
+            parameterdescription = `JSON string with original CMR creation content for reference`
+            parametertype        = `string`  ) ).
 
       WHEN `VALIDATE_CMR`.
         rt_perameters = VALUE #( BASE rt_perameters
-          ( parameter_name        = `CMRHEADERS`
-            parameter_description = `JSON string with CMR header context for validation of mandatory fields`
-            parameter_type        = `string`
-            parameter_is_optional = abap_false )
-          ( parameter_name        = `CMRITEMS`
-            parameter_description = `JSON string with CMR item context for item-level validation`
-            parameter_type        = `string`
-            parameter_is_optional = abap_false )
-          ( parameter_name        = `CMRCREATIONCONTENT`
-            parameter_description = `JSON string with original CMR creation content for reference validation`
-            parameter_type        = `string`
-            parameter_is_optional = abap_true ) ).
+          ( parametername        = `CMRHEADERS`
+            parameterdescription = `JSON string with CMR header context for validation of mandatory fields`
+            parametertype        = `string`  )
+          ( parametername        = `CMRITEMS`
+            parameterdescription = `JSON string with CMR item context for item-level validation`
+            parametertype        = `string` )
+          ( parametername        = `CMRCREATIONCONTENT`
+            parameterdescription = `JSON string with original CMR creation content for reference validation`
+            parametertype        = `string`  ) ).
 
       WHEN `CREATE_INB_DELIVERY`.
         rt_perameters = VALUE #( BASE rt_perameters
-          ( parameter_name        = `CMRHEADERS`
-            parameter_description = `JSON string with CMR header context mapped to inbound delivery headers`
-            parameter_type        = `string`
-            parameter_is_optional = abap_false )
-          ( parameter_name        = `CMRITEMS`
-            parameter_description = `JSON string with CMR item context mapped to inbound delivery items`
-            parameter_type        = `string`
-            parameter_is_optional = abap_false )
-          ( parameter_name        = `CMRCREATIONCONTENT`
-            parameter_description = `JSON string with original CMR creation content for audit reference`
-            parameter_type        = `string`
-            parameter_is_optional = abap_true ) ).
+          ( parametername        = `CMRHEADERS`
+            parameterdescription = `JSON string with CMR header context mapped to inbound delivery headers`
+            parametertype        = `string` )
+          ( parametername        = `CMRITEMS`
+            parameterdescription = `JSON string with CMR item context mapped to inbound delivery items`
+            parametertype        = `string` )
+          ( parametername        = `CMRCREATIONCONTENT`
+            parameterdescription = `JSON string with original CMR creation content for audit reference`
+            parametertype        = `string` ) ).
 
       WHEN `FIND_STORAGE_BIN`.
         rt_perameters = VALUE #( BASE rt_perameters
-          ( parameter_name        = `CMRHEADERS`
-            parameter_description = `JSON string with CMR headers used for bin search context (optional)`
-            parameter_type        = `string`
-            parameter_is_optional = abap_true )
-          ( parameter_name        = `CMRITEMS`
-            parameter_description = `JSON string with CMR items used for bin search context (optional)`
-            parameter_type        = `string`
-            parameter_is_optional = abap_true )
-          ( parameter_name        = `INBDELIVERYHEADERS`
-            parameter_description = `JSON string with inbound delivery headers for bin search reference`
-            parameter_type        = `string`
-            parameter_is_optional = abap_true )
-          ( parameter_name        = `INBDELIVERYITEMS`
-            parameter_description = `JSON string with inbound delivery items to determine bin requirements`
-            parameter_type        = `string`
-            parameter_is_optional = abap_true ) ).
+          ( parametername        = `CMRHEADERS`
+            parameterdescription = `JSON string with CMR headers used for bin search context (optional)`
+            parametertype        = `string`  )
+          ( parametername        = `CMRITEMS`
+            parameterdescription = `JSON string with CMR items used for bin search context (optional)`
+            parametertype        = `string`  )
+          ( parametername        = `INBDELIVERYHEADERS`
+            parameterdescription = `JSON string with inbound delivery headers for bin search reference`
+            parametertype        = `string`  )
+          ( parametername        = `INBDELIVERYITEMS`
+            parameterdescription = `JSON string with inbound delivery items to determine bin requirements`
+            parametertype        = `string`  ) ).
 
       WHEN `CREATE_WAREHOUSE_TASK`.
         rt_perameters = VALUE #( BASE rt_perameters
-          ( parameter_name        = `INBDELIVERYHEADERS`
-            parameter_description = `JSON string with inbound delivery headers for warehouse task creation`
-            parameter_type        = `string`
-            parameter_is_optional = abap_false )
-          ( parameter_name        = `INBDELIVERYITEMS`
-            parameter_description = `JSON string with inbound delivery items to create warehouse tasks for`
-            parameter_type        = `string`
-            parameter_is_optional = abap_false )
-          ( parameter_name        = `STORAGEBINS`
-            parameter_description = `JSON string with available storage bins for task destination assignment`
-            parameter_type        = `string`
-            parameter_is_optional = abap_false ) ).
+          ( parametername        = `INBDELIVERYHEADERS`
+            parameterdescription = `JSON string with inbound delivery headers for warehouse task creation`
+            parametertype        = `string` )
+          ( parametername        = `INBDELIVERYITEMS`
+            parameterdescription = `JSON string with inbound delivery items to create warehouse tasks for`
+            parametertype        = `string` )
+          ( parametername        = `STORAGEBINS`
+            parameterdescription = `JSON string with available storage bins for task destination assignment`
+            parametertype        = `string`  ) ).
 
       WHEN OTHERS.
         RAISE EXCEPTION NEW zpru_cx_agent_core( ).
@@ -2599,70 +2594,70 @@ CLASS lcl_adf_tool_info_provider IMPLEMENTATION.
   METHOD set_tool_properties.
     rt_tool_property = VALUE #( BASE rt_tool_property
       ( toolpropertyname  = `EXECUTION_TYPE`
-        toolpropertyvalue = `ABAP` )
+        toolproperty = `ABAP` )
       ( toolpropertyname  = `RAP_PERSISTENCE`
-        toolpropertyvalue = `TRUE` )
+        toolproperty = `TRUE` )
       ( toolpropertyname  = `CONTEXT_INPUT`
-        toolpropertyvalue = `TRUE` )
+        toolproperty = `TRUE` )
       ( toolpropertyname  = `CONTEXT_OUTPUT`
-        toolpropertyvalue = `TRUE` ) ).
+        toolproperty = `TRUE` ) ).
 
     CASE is_tool_master_data-toolname.
       WHEN `CREATE_CMR`.
         rt_tool_property = VALUE #( BASE rt_tool_property
           ( toolpropertyname  = `RAP_ENTITY`
-            toolpropertyvalue = `zr_pru_cmr_header / zrprucmrheader, zrprucmritem` )
+            toolproperty = `zr_pru_cmr_header / zrprucmrheader, zrprucmritem` )
           ( toolpropertyname  = `OUTPUT_FIELDS`
-            toolpropertyvalue = `CMRHEADERS, CMRITEMS, CMRCREATIONCONTENT` )
+            toolproperty = `CMRHEADERS, CMRITEMS, CMRCREATIONCONTENT` )
           ( toolpropertyname  = `EXECUTION_SEQUENCE`
-            toolpropertyvalue = `1` ) ).
+            toolproperty = `1` ) ).
 
       WHEN `CLASSIFY_DANGER_GOODS`.
         rt_tool_property = VALUE #( BASE rt_tool_property
           ( toolpropertyname  = `RAP_ENTITY`
-            toolpropertyvalue = `zr_pru_cmr_alert / zrprucmralert` )
+            toolproperty = `zr_pru_cmr_alert / zrprucmralert` )
           ( toolpropertyname  = `OUTPUT_FIELDS`
-            toolpropertyvalue = `CMRALERTS` )
+            toolproperty = `CMRALERTS` )
           ( toolpropertyname  = `EXECUTION_SEQUENCE`
-            toolpropertyvalue = `2` ) ).
+            toolproperty = `2` ) ).
 
       WHEN `VALIDATE_CMR`.
         rt_tool_property = VALUE #( BASE rt_tool_property
           ( toolpropertyname  = `RAP_ENTITY`
-            toolpropertyvalue = `zr_pru_cmr_valid / zrprucmrvalid` )
+            toolproperty = `zr_pru_cmr_valid / zrprucmrvalid` )
           ( toolpropertyname  = `OUTPUT_FIELDS`
-            toolpropertyvalue = `CMRSTATUS, CMRFINDING` )
+            toolproperty = `CMRSTATUS, CMRFINDING` )
           ( toolpropertyname  = `EXECUTION_SEQUENCE`
-            toolpropertyvalue = `3` ) ).
+            toolproperty = `3` ) ).
 
       WHEN `CREATE_INB_DELIVERY`.
         rt_tool_property = VALUE #( BASE rt_tool_property
           ( toolpropertyname  = `RAP_ENTITY`
-            toolpropertyvalue = `zprur_inbhdr / inbhdr, inbitm` )
+            toolproperty = `zprur_inbhdr / inbhdr, inbitm` )
           ( toolpropertyname  = `OUTPUT_FIELDS`
-            toolpropertyvalue = `INBDELIVERYHEADERS, INBDELIVERYITEMS` )
+            toolproperty = `INBDELIVERYHEADERS, INBDELIVERYITEMS` )
           ( toolpropertyname  = `EXECUTION_SEQUENCE`
-            toolpropertyvalue = `4` ) ).
+            toolproperty = `4` ) ).
 
       WHEN `FIND_STORAGE_BIN`.
         rt_tool_property = VALUE #( BASE rt_tool_property
           ( toolpropertyname  = `RAP_ENTITY`
-            toolpropertyvalue = `ZPRUSTORBIN (database table read)` )
+            toolproperty = `ZPRUSTORBIN (database table read)` )
           ( toolpropertyname  = `OUTPUT_FIELDS`
-            toolpropertyvalue = `STORAGEBINS` )
+            toolproperty = `STORAGEBINS` )
           ( toolpropertyname  = `READ_ONLY`
-            toolpropertyvalue = `TRUE` )
+            toolproperty = `TRUE` )
           ( toolpropertyname  = `EXECUTION_SEQUENCE`
-            toolpropertyvalue = `5` ) ).
+            toolproperty = `5` ) ).
 
       WHEN `CREATE_WAREHOUSE_TASK`.
         rt_tool_property = VALUE #( BASE rt_tool_property
           ( toolpropertyname  = `RAP_ENTITY`
-            toolpropertyvalue = `zprur_task / task` )
+            toolproperty = `zprur_task / task` )
           ( toolpropertyname  = `OUTPUT_FIELDS`
-            toolpropertyvalue = `WAREHOUSETASKS` )
+            toolproperty = `WAREHOUSETASKS` )
           ( toolpropertyname  = `EXECUTION_SEQUENCE`
-            toolpropertyvalue = `6` ) ).
+            toolproperty = `6` ) ).
 
       WHEN OTHERS.
         RAISE EXCEPTION NEW zpru_cx_agent_core( ).
