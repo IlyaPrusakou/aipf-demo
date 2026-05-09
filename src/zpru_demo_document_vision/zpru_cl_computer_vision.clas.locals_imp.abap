@@ -2517,74 +2517,103 @@ CLASS lcl_adf_tool_info_provider IMPLEMENTATION.
         rt_perameters = VALUE #( BASE rt_perameters
           ( parametername        = `CMRCREATIONCONTENT`
             parameterdescription = `JSON string containing CMR creation content with headers and items extracted from LLM response`
-            parametertype        = `string`  )
-          ( parametername        = `IS_INPUT`
-            parameterdescription = `Input structure of type TS_CMR_CREATE_REQUEST with field cmrcreationcontent`
-            parametertype        = cl_abap_typedescr=>describe_by_data( p_data = VALUE zpru_if_computer_vision=>ts_cmr_create_request( ) )->absolute_name
-) ).
+            parametertype        = cl_abap_objectdescr=>exporting  )
+          ( parametername        = `CMRCREATIONCONTENT`
+            parameterdescription = ``
+            parametertype        = cl_abap_objectdescr=>importing  )
+          ( parametername        = `CMRITEMS`
+            parameterdescription = ``
+            parametertype        = cl_abap_objectdescr=>importing  )
+          ( parametername        = `CMRHEADERS`
+            parameterdescription = ``
+            parametertype        = cl_abap_objectdescr=>importing  ) ).
 
       WHEN `CLASSIFY_DANGER_GOODS`.
         rt_perameters = VALUE #( BASE rt_perameters
           ( parametername        = `CMRHEADERS`
             parameterdescription = `JSON string with CMR header context data for item classification context`
-            parametertype        = `string`  )
+            parametertype        = cl_abap_objectdescr=>exporting   )
           ( parametername        = `CMRITEMS`
             parameterdescription = `JSON string with CMR item data to classify for dangerous goods`
-            parametertype        = `string`  )
+            parametertype        = cl_abap_objectdescr=>exporting  )
           ( parametername        = `CMRCREATIONCONTENT`
             parameterdescription = `JSON string with original CMR creation content for reference`
-            parametertype        = `string`  ) ).
+            parametertype        = cl_abap_objectdescr=>exporting   )
+          ( parametername        = `cmralerts`
+            parameterdescription = ``
+            parametertype        = cl_abap_objectdescr=>importing   ) ).
 
       WHEN `VALIDATE_CMR`.
         rt_perameters = VALUE #( BASE rt_perameters
           ( parametername        = `CMRHEADERS`
             parameterdescription = `JSON string with CMR header context for validation of mandatory fields`
-            parametertype        = `string`  )
+            parametertype        = cl_abap_objectdescr=>exporting  )
           ( parametername        = `CMRITEMS`
             parameterdescription = `JSON string with CMR item context for item-level validation`
-            parametertype        = `string` )
+            parametertype        = cl_abap_objectdescr=>exporting )
           ( parametername        = `CMRCREATIONCONTENT`
             parameterdescription = `JSON string with original CMR creation content for reference validation`
-            parametertype        = `string`  ) ).
+            parametertype        = cl_abap_objectdescr=>exporting  )
+          ( parametername        = `CMRSTATUS`
+            parameterdescription = ``
+            parametertype        = cl_abap_objectdescr=>importing  )
+          ( parametername        = `CMRFINDING`
+            parameterdescription = ``
+            parametertype        = cl_abap_objectdescr=>importing  ) ).
 
       WHEN `CREATE_INB_DELIVERY`.
         rt_perameters = VALUE #( BASE rt_perameters
           ( parametername        = `CMRHEADERS`
             parameterdescription = `JSON string with CMR header context mapped to inbound delivery headers`
-            parametertype        = `string` )
+            parametertype        = cl_abap_objectdescr=>exporting )
           ( parametername        = `CMRITEMS`
             parameterdescription = `JSON string with CMR item context mapped to inbound delivery items`
-            parametertype        = `string` )
+            parametertype        = cl_abap_objectdescr=>exporting )
           ( parametername        = `CMRCREATIONCONTENT`
             parameterdescription = `JSON string with original CMR creation content for audit reference`
-            parametertype        = `string` ) ).
+            parametertype        = cl_abap_objectdescr=>exporting )
+          ( parametername        = `INBDELIVERYHEADERS`
+            parameterdescription = ``
+            parametertype        = cl_abap_objectdescr=>importing  )
+          ( parametername        = `INBDELIVERYITEMS`
+            parameterdescription = ``
+            parametertype        = cl_abap_objectdescr=>importing  )
+          ( parametername        = `INBDELIVERYCREATIONCONTENT`
+            parameterdescription = ``
+            parametertype        = cl_abap_objectdescr=>importing  ) ).
 
       WHEN `FIND_STORAGE_BIN`.
         rt_perameters = VALUE #( BASE rt_perameters
           ( parametername        = `CMRHEADERS`
             parameterdescription = `JSON string with CMR headers used for bin search context (optional)`
-            parametertype        = `string`  )
+            parametertype        = cl_abap_objectdescr=>exporting  )
           ( parametername        = `CMRITEMS`
             parameterdescription = `JSON string with CMR items used for bin search context (optional)`
-            parametertype        = `string`  )
+            parametertype        = cl_abap_objectdescr=>exporting  )
           ( parametername        = `INBDELIVERYHEADERS`
             parameterdescription = `JSON string with inbound delivery headers for bin search reference`
-            parametertype        = `string`  )
+            parametertype        = cl_abap_objectdescr=>exporting  )
           ( parametername        = `INBDELIVERYITEMS`
             parameterdescription = `JSON string with inbound delivery items to determine bin requirements`
-            parametertype        = `string`  ) ).
+            parametertype        = cl_abap_objectdescr=>exporting  )
+          ( parametername        = `STORAGEBINS`
+            parameterdescription = `JSON string with inbound delivery items to determine bin requirements`
+            parametertype        = cl_abap_objectdescr=>importing  ) ).
 
       WHEN `CREATE_WAREHOUSE_TASK`.
         rt_perameters = VALUE #( BASE rt_perameters
           ( parametername        = `INBDELIVERYHEADERS`
             parameterdescription = `JSON string with inbound delivery headers for warehouse task creation`
-            parametertype        = `string` )
+            parametertype        = cl_abap_objectdescr=>exporting )
           ( parametername        = `INBDELIVERYITEMS`
             parameterdescription = `JSON string with inbound delivery items to create warehouse tasks for`
-            parametertype        = `string` )
+            parametertype        = cl_abap_objectdescr=>exporting )
           ( parametername        = `STORAGEBINS`
             parameterdescription = `JSON string with available storage bins for task destination assignment`
-            parametertype        = `string`  ) ).
+            parametertype        = cl_abap_objectdescr=>exporting  )
+          ( parametername        = `WAREHOUSETASKS`
+            parameterdescription = `JSON string with available storage bins for task destination assignment`
+            parametertype        = cl_abap_objectdescr=>importing  ) ).
 
       WHEN OTHERS.
         RAISE EXCEPTION NEW zpru_cx_agent_core( ).
