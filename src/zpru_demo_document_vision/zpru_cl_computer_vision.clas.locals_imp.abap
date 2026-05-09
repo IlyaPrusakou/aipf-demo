@@ -366,9 +366,9 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD set_final_response_content.
-    DATA lt_axc_head  TYPE zpru_if_axc_type_and_constant=>tt_axc_head.
-    DATA lt_axc_query TYPE zpru_if_axc_type_and_constant=>tt_axc_query.
-    DATA lt_axc_steps TYPE zpru_if_axc_type_and_constant=>tt_axc_step.
+    DATA lt_axc_head           TYPE zpru_if_axc_type_and_constant=>tt_axc_head.
+    DATA lt_axc_query          TYPE zpru_if_axc_type_and_constant=>tt_axc_query.
+    DATA lt_axc_steps          TYPE zpru_if_axc_type_and_constant=>tt_axc_step.
     DATA ls_recognition_output TYPE zbp_r_pru_message=>ts_recognition_output.
 
     DATA(lo_axc_service) = get_axc_service_instance( ).
@@ -755,8 +755,8 @@ ENDCLASS.
 
 CLASS lcl_adf_create_cmr IMPLEMENTATION.
   METHOD execute_code_int.
-    DATA lt_headers_all TYPE zpru_if_computer_vision=>tt_cmr_header_context.
-    DATA lt_items_all   TYPE zpru_if_computer_vision=>tt_cmr_item_context.
+    DATA lt_headers_all        TYPE zpru_if_computer_vision=>tt_cmr_header_context.
+    DATA lt_items_all          TYPE zpru_if_computer_vision=>tt_cmr_item_context.
     DATA lt_cmr_header_context TYPE zpru_if_computer_vision=>tt_cmr_header_context.
     DATA lt_cmr_item_context   TYPE zpru_if_computer_vision=>tt_cmr_item_context.
 
@@ -774,7 +774,7 @@ CLASS lcl_adf_create_cmr IMPLEMENTATION.
 
     DATA(lt_cmr_create_head) = prepare_header_rap_entities( lt_headers_all ).
     DATA(lt_cmr_create_item) = prepare_item_rap_entities( it_headers_create = lt_cmr_create_head
-                                                          it_items = lt_items_all ).
+                                                          it_items          = lt_items_all ).
 
     IF lt_cmr_create_head IS INITIAL.
       RAISE EXCEPTION NEW zpru_cx_agent_core( ).
@@ -782,7 +782,7 @@ CLASS lcl_adf_create_cmr IMPLEMENTATION.
 
     " release temporarily key before save
     LOOP AT lt_cmr_create_head ASSIGNING FIELD-SYMBOL(<ls_head_create>)
-                               WHERE cmruuid IS NOT INITIAL.
+         WHERE cmruuid IS NOT INITIAL.
       CLEAR <ls_head_create>-cmruuid.
     ENDLOOP.
 
@@ -931,7 +931,7 @@ CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
   METHOD execute_code_int.
     DATA lt_alert_rap TYPE TABLE FOR CREATE zr_pru_cmr_alert\\zrprucmralert.
     DATA lv_count     TYPE i.
-    DATA lv_reason TYPE string.
+    DATA lv_reason    TYPE string.
 
     DATA(lt_cmr_item_context) = deserialize_classify_input( is_input ).
 
@@ -1263,17 +1263,16 @@ ENDCLASS.
 
 CLASS lcl_adf_validate_cmr IMPLEMENTATION.
   METHOD execute_code_int.
-    DATA lt_headers TYPE zpru_if_computer_vision=>tt_cmr_header_context.
-    DATA lt_items   TYPE zpru_if_computer_vision=>tt_cmr_item_context.
-
-    deserialize_validation_input( EXPORTING is_input   = is_input
-                                  IMPORTING et_headers = lt_headers
-                                            et_items   = lt_items ).
-
     DATA lt_findings_rap TYPE TABLE FOR CREATE zr_pru_cmr_valid\\zrprucmrvalid.
     DATA lt_findings_out TYPE zpru_if_computer_vision=>tt_cmr_finding.
     DATA lt_cmr_status   TYPE zpru_if_computer_vision=>tt_cmr_overall_status.
     DATA lv_cid_counter  TYPE i VALUE 1.
+    DATA lt_headers      TYPE zpru_if_computer_vision=>tt_cmr_header_context.
+    DATA lt_items        TYPE zpru_if_computer_vision=>tt_cmr_item_context.
+
+    deserialize_validation_input( EXPORTING is_input   = is_input
+                                  IMPORTING et_headers = lt_headers
+                                            et_items   = lt_items ).
 
     LOOP AT lt_headers ASSIGNING FIELD-SYMBOL(<ls_hdr>).
       validate_header_senderinfo( EXPORTING is_header       = <ls_hdr>
@@ -1399,21 +1398,28 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
                                                                findingmsg    = 'Sender information is missing'
                                                                createdby     = sy-uname
                                                                createdat     = VALUE #( ) )
-                           CHANGING  ct_findings    = ct_findings
-                                     cv_cid_counter = cv_cid_counter ).
-    " Update %cid and %control after creation
-    DATA(ls_latest) = ct_findings_rap[ lines( ct_findings_rap ) ].
-    ls_latest-%cid     = |FIND{ cv_cid_counter }|.
-    ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                  cmruuid       = if_abap_behv=>mk-on
-                                  cmrid         = if_abap_behv=>mk-on
-                                  findingstatus = if_abap_behv=>mk-on
-                                  findingtype   = if_abap_behv=>mk-on
-                                  fieldname     = if_abap_behv=>mk-on
-                                  findingmsg    = if_abap_behv=>mk-on
-                                  createdby     = if_abap_behv=>mk-on
-                                  createdat     = if_abap_behv=>mk-on ).
-    APPEND ls_latest TO ct_findings_rap.
+                           CHANGING  ct_findings    = ct_findings  ).
+
+    DATA(ls_latest_finding) = VALUE #( ct_findings[ lines( ct_findings ) ] OPTIONAL ).
+    IF ls_latest_finding IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    APPEND INITIAL LINE TO ct_findings_rap ASSIGNING FIELD-SYMBOL(<ls_rap>).
+
+    <ls_rap> = CORRESPONDING #( ls_latest_finding ).
+    <ls_rap>-%cid     = |FIND{ cv_cid_counter }|.
+
+    <ls_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                 cmruuid       = if_abap_behv=>mk-on
+                                 cmrid         = if_abap_behv=>mk-on
+                                 findingstatus = if_abap_behv=>mk-on
+                                 findingtype   = if_abap_behv=>mk-on
+                                 fieldname     = if_abap_behv=>mk-on
+                                 findingmsg    = if_abap_behv=>mk-on
+                                 createdby     = if_abap_behv=>mk-on
+                                 createdat     = if_abap_behv=>mk-on ).
+
     cv_cid_counter += 1.
   ENDMETHOD.
 
@@ -1442,20 +1448,27 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
                                                                findingmsg    = 'Consignee information is missing'
                                                                createdby     = sy-uname
                                                                createdat     = VALUE #( ) )
-                           CHANGING  ct_findings    = ct_findings
-                                     cv_cid_counter = cv_cid_counter ).
-    DATA(ls_latest) = ct_findings_rap[ lines( ct_findings_rap ) ].
-    ls_latest-%cid     = |FIND{ cv_cid_counter }|.
-    ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                  cmruuid       = if_abap_behv=>mk-on
-                                  cmrid         = if_abap_behv=>mk-on
-                                  findingstatus = if_abap_behv=>mk-on
-                                  findingtype   = if_abap_behv=>mk-on
-                                  fieldname     = if_abap_behv=>mk-on
-                                  findingmsg    = if_abap_behv=>mk-on
-                                  createdby     = if_abap_behv=>mk-on
-                                  createdat     = if_abap_behv=>mk-on ).
-    APPEND ls_latest TO ct_findings_rap.
+                           CHANGING  ct_findings    = ct_findings  ).
+    DATA(ls_latest_finding) = VALUE #( ct_findings[ lines( ct_findings ) ] OPTIONAL ).
+    IF ls_latest_finding IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    APPEND INITIAL LINE TO ct_findings_rap ASSIGNING FIELD-SYMBOL(<ls_rap>).
+
+    <ls_rap> = CORRESPONDING #( ls_latest_finding ).
+    <ls_rap>-%cid     = |FIND{ cv_cid_counter }|.
+
+    <ls_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                 cmruuid       = if_abap_behv=>mk-on
+                                 cmrid         = if_abap_behv=>mk-on
+                                 findingstatus = if_abap_behv=>mk-on
+                                 findingtype   = if_abap_behv=>mk-on
+                                 fieldname     = if_abap_behv=>mk-on
+                                 findingmsg    = if_abap_behv=>mk-on
+                                 createdby     = if_abap_behv=>mk-on
+                                 createdat     = if_abap_behv=>mk-on ).
+
     cv_cid_counter += 1.
   ENDMETHOD.
 
@@ -1478,20 +1491,27 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
                                                                findingmsg    = 'Carrier information is missing'
                                                                createdby     = sy-uname
                                                                createdat     = VALUE #( ) )
-                           CHANGING  ct_findings    = ct_findings
-                                     cv_cid_counter = cv_cid_counter ).
-    DATA(ls_latest) = ct_findings_rap[ lines( ct_findings_rap ) ].
-    ls_latest-%cid     = |FIND{ cv_cid_counter }|.
-    ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                  cmruuid       = if_abap_behv=>mk-on
-                                  cmrid         = if_abap_behv=>mk-on
-                                  findingstatus = if_abap_behv=>mk-on
-                                  findingtype   = if_abap_behv=>mk-on
-                                  fieldname     = if_abap_behv=>mk-on
-                                  findingmsg    = if_abap_behv=>mk-on
-                                  createdby     = if_abap_behv=>mk-on
-                                  createdat     = if_abap_behv=>mk-on ).
-    APPEND ls_latest TO ct_findings_rap.
+                           CHANGING  ct_findings    = ct_findings  ).
+    DATA(ls_latest_finding) = VALUE #( ct_findings[ lines( ct_findings ) ] OPTIONAL ).
+    IF ls_latest_finding IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    APPEND INITIAL LINE TO ct_findings_rap ASSIGNING FIELD-SYMBOL(<ls_rap>).
+
+    <ls_rap> = CORRESPONDING #( ls_latest_finding ).
+    <ls_rap>-%cid     = |FIND{ cv_cid_counter }|.
+
+    <ls_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                 cmruuid       = if_abap_behv=>mk-on
+                                 cmrid         = if_abap_behv=>mk-on
+                                 findingstatus = if_abap_behv=>mk-on
+                                 findingtype   = if_abap_behv=>mk-on
+                                 fieldname     = if_abap_behv=>mk-on
+                                 findingmsg    = if_abap_behv=>mk-on
+                                 createdby     = if_abap_behv=>mk-on
+                                 createdat     = if_abap_behv=>mk-on ).
+
     cv_cid_counter += 1.
   ENDMETHOD.
 
@@ -1514,20 +1534,27 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
                                                                findingmsg    = 'Taking-over place is missing'
                                                                createdby     = sy-uname
                                                                createdat     = VALUE #( ) )
-                           CHANGING  ct_findings    = ct_findings
-                                     cv_cid_counter = cv_cid_counter ).
-    DATA(ls_latest) = ct_findings_rap[ lines( ct_findings_rap ) ].
-    ls_latest-%cid     = |FIND{ cv_cid_counter }|.
-    ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                  cmruuid       = if_abap_behv=>mk-on
-                                  cmrid         = if_abap_behv=>mk-on
-                                  findingstatus = if_abap_behv=>mk-on
-                                  findingtype   = if_abap_behv=>mk-on
-                                  fieldname     = if_abap_behv=>mk-on
-                                  findingmsg    = if_abap_behv=>mk-on
-                                  createdby     = if_abap_behv=>mk-on
-                                  createdat     = if_abap_behv=>mk-on ).
-    APPEND ls_latest TO ct_findings_rap.
+                           CHANGING  ct_findings    = ct_findings ).
+    DATA(ls_latest_finding) = VALUE #( ct_findings[ lines( ct_findings ) ] OPTIONAL ).
+    IF ls_latest_finding IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    APPEND INITIAL LINE TO ct_findings_rap ASSIGNING FIELD-SYMBOL(<ls_rap>).
+
+    <ls_rap> = CORRESPONDING #( ls_latest_finding ).
+    <ls_rap>-%cid     = |FIND{ cv_cid_counter }|.
+
+    <ls_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                 cmruuid       = if_abap_behv=>mk-on
+                                 cmrid         = if_abap_behv=>mk-on
+                                 findingstatus = if_abap_behv=>mk-on
+                                 findingtype   = if_abap_behv=>mk-on
+                                 fieldname     = if_abap_behv=>mk-on
+                                 findingmsg    = if_abap_behv=>mk-on
+                                 createdby     = if_abap_behv=>mk-on
+                                 createdat     = if_abap_behv=>mk-on ).
+
     cv_cid_counter += 1.
   ENDMETHOD.
 
@@ -1550,20 +1577,27 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
                                                                findingmsg    = 'Delivery place is missing'
                                                                createdby     = sy-uname
                                                                createdat     = VALUE #( ) )
-                           CHANGING  ct_findings    = ct_findings
-                                     cv_cid_counter = cv_cid_counter ).
-    DATA(ls_latest) = ct_findings_rap[ lines( ct_findings_rap ) ].
-    ls_latest-%cid     = |FIND{ cv_cid_counter }|.
-    ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                  cmruuid       = if_abap_behv=>mk-on
-                                  cmrid         = if_abap_behv=>mk-on
-                                  findingstatus = if_abap_behv=>mk-on
-                                  findingtype   = if_abap_behv=>mk-on
-                                  fieldname     = if_abap_behv=>mk-on
-                                  findingmsg    = if_abap_behv=>mk-on
-                                  createdby     = if_abap_behv=>mk-on
-                                  createdat     = if_abap_behv=>mk-on ).
-    APPEND ls_latest TO ct_findings_rap.
+                           CHANGING  ct_findings    = ct_findings  ).
+    DATA(ls_latest_finding) = VALUE #( ct_findings[ lines( ct_findings ) ] OPTIONAL ).
+    IF ls_latest_finding IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    APPEND INITIAL LINE TO ct_findings_rap ASSIGNING FIELD-SYMBOL(<ls_rap>).
+
+    <ls_rap> = CORRESPONDING #( ls_latest_finding ).
+    <ls_rap>-%cid     = |FIND{ cv_cid_counter }|.
+
+    <ls_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                 cmruuid       = if_abap_behv=>mk-on
+                                 cmrid         = if_abap_behv=>mk-on
+                                 findingstatus = if_abap_behv=>mk-on
+                                 findingtype   = if_abap_behv=>mk-on
+                                 fieldname     = if_abap_behv=>mk-on
+                                 findingmsg    = if_abap_behv=>mk-on
+                                 createdby     = if_abap_behv=>mk-on
+                                 createdat     = if_abap_behv=>mk-on ).
+
     cv_cid_counter += 1.
   ENDMETHOD.
 
@@ -1586,20 +1620,27 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
                                                                findingmsg    = 'Taking-over date is missing'
                                                                createdby     = sy-uname
                                                                createdat     = VALUE #( ) )
-                           CHANGING  ct_findings    = ct_findings
-                                     cv_cid_counter = cv_cid_counter ).
-    DATA(ls_latest) = ct_findings_rap[ lines( ct_findings_rap ) ].
-    ls_latest-%cid     = |FIND{ cv_cid_counter }|.
-    ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                  cmruuid       = if_abap_behv=>mk-on
-                                  cmrid         = if_abap_behv=>mk-on
-                                  findingstatus = if_abap_behv=>mk-on
-                                  findingtype   = if_abap_behv=>mk-on
-                                  fieldname     = if_abap_behv=>mk-on
-                                  findingmsg    = if_abap_behv=>mk-on
-                                  createdby     = if_abap_behv=>mk-on
-                                  createdat     = if_abap_behv=>mk-on ).
-    APPEND ls_latest TO ct_findings_rap.
+                           CHANGING  ct_findings    = ct_findings  ).
+    DATA(ls_latest_finding) = VALUE #( ct_findings[ lines( ct_findings ) ] OPTIONAL ).
+    IF ls_latest_finding IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    APPEND INITIAL LINE TO ct_findings_rap ASSIGNING FIELD-SYMBOL(<ls_rap>).
+
+    <ls_rap> = CORRESPONDING #( ls_latest_finding ).
+    <ls_rap>-%cid     = |FIND{ cv_cid_counter }|.
+
+    <ls_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                 cmruuid       = if_abap_behv=>mk-on
+                                 cmrid         = if_abap_behv=>mk-on
+                                 findingstatus = if_abap_behv=>mk-on
+                                 findingtype   = if_abap_behv=>mk-on
+                                 fieldname     = if_abap_behv=>mk-on
+                                 findingmsg    = if_abap_behv=>mk-on
+                                 createdby     = if_abap_behv=>mk-on
+                                 createdat     = if_abap_behv=>mk-on ).
+
     cv_cid_counter += 1.
   ENDMETHOD.
 
@@ -1623,20 +1664,27 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
                                findingmsg    = 'Currency required when cash on delivery is set'
                                createdby     = sy-uname
                                createdat     = VALUE #( ) )
-                           CHANGING  ct_findings    = ct_findings
-                                     cv_cid_counter = cv_cid_counter ).
-    DATA(ls_latest) = ct_findings_rap[ lines( ct_findings_rap ) ].
-    ls_latest-%cid     = |FIND{ cv_cid_counter }|.
-    ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                  cmruuid       = if_abap_behv=>mk-on
-                                  cmrid         = if_abap_behv=>mk-on
-                                  findingstatus = if_abap_behv=>mk-on
-                                  findingtype   = if_abap_behv=>mk-on
-                                  fieldname     = if_abap_behv=>mk-on
-                                  findingmsg    = if_abap_behv=>mk-on
-                                  createdby     = if_abap_behv=>mk-on
-                                  createdat     = if_abap_behv=>mk-on ).
-    APPEND ls_latest TO ct_findings_rap.
+                           CHANGING  ct_findings    = ct_findings  ).
+    DATA(ls_latest_finding) = VALUE #( ct_findings[ lines( ct_findings ) ] OPTIONAL ).
+    IF ls_latest_finding IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    APPEND INITIAL LINE TO ct_findings_rap ASSIGNING FIELD-SYMBOL(<ls_rap>).
+
+    <ls_rap> = CORRESPONDING #( ls_latest_finding ).
+    <ls_rap>-%cid     = |FIND{ cv_cid_counter }|.
+
+    <ls_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                 cmruuid       = if_abap_behv=>mk-on
+                                 cmrid         = if_abap_behv=>mk-on
+                                 findingstatus = if_abap_behv=>mk-on
+                                 findingtype   = if_abap_behv=>mk-on
+                                 fieldname     = if_abap_behv=>mk-on
+                                 findingmsg    = if_abap_behv=>mk-on
+                                 createdby     = if_abap_behv=>mk-on
+                                 createdat     = if_abap_behv=>mk-on ).
+
     cv_cid_counter += 1.
   ENDMETHOD.
 
@@ -1663,20 +1711,27 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
                                                                findingmsg    = 'No items found for CMR'
                                                                createdby     = sy-uname
                                                                createdat     = VALUE #( ) )
-                           CHANGING  ct_findings    = ct_findings
-                                     cv_cid_counter = cv_cid_counter ).
-    DATA(ls_latest) = ct_findings_rap[ lines( ct_findings_rap ) ].
-    ls_latest-%cid     = |FIND{ cv_cid_counter }|.
-    ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                  cmruuid       = if_abap_behv=>mk-on
-                                  cmrid         = if_abap_behv=>mk-on
-                                  findingstatus = if_abap_behv=>mk-on
-                                  findingtype   = if_abap_behv=>mk-on
-                                  fieldname     = if_abap_behv=>mk-on
-                                  findingmsg    = if_abap_behv=>mk-on
-                                  createdby     = if_abap_behv=>mk-on
-                                  createdat     = if_abap_behv=>mk-on ).
-    APPEND ls_latest TO ct_findings_rap.
+                           CHANGING  ct_findings    = ct_findings ).
+    DATA(ls_latest_finding) = VALUE #( ct_findings[ lines( ct_findings ) ] OPTIONAL ).
+    IF ls_latest_finding IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    APPEND INITIAL LINE TO ct_findings_rap ASSIGNING FIELD-SYMBOL(<ls_rap>).
+
+    <ls_rap> = CORRESPONDING #( ls_latest_finding ).
+    <ls_rap>-%cid     = |FIND{ cv_cid_counter }|.
+
+    <ls_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                 cmruuid       = if_abap_behv=>mk-on
+                                 cmrid         = if_abap_behv=>mk-on
+                                 findingstatus = if_abap_behv=>mk-on
+                                 findingtype   = if_abap_behv=>mk-on
+                                 fieldname     = if_abap_behv=>mk-on
+                                 findingmsg    = if_abap_behv=>mk-on
+                                 createdby     = if_abap_behv=>mk-on
+                                 createdat     = if_abap_behv=>mk-on ).
+
     cv_cid_counter += 1.
   ENDMETHOD.
 
@@ -1702,22 +1757,27 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
                                findingmsg    = |Nature of goods is missing for item { is_item-itemposition }|
                                createdby     = sy-uname
                                createdat     = VALUE #( ) )
-                           CHANGING  ct_findings    = ct_findings
-                                     cv_cid_counter = cv_cid_counter ).
-    DATA(ls_latest) = ct_findings_rap[ lines( ct_findings_rap ) ].
-    ls_latest-%cid     = |FIND{ cv_cid_counter }|.
-    ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                  cmruuid       = if_abap_behv=>mk-on
-                                  cmrid         = if_abap_behv=>mk-on
-                                  cmritemuuid   = if_abap_behv=>mk-on
-                                  itemposition  = if_abap_behv=>mk-on
-                                  findingstatus = if_abap_behv=>mk-on
-                                  findingtype   = if_abap_behv=>mk-on
-                                  fieldname     = if_abap_behv=>mk-on
-                                  findingmsg    = if_abap_behv=>mk-on
-                                  createdby     = if_abap_behv=>mk-on
-                                  createdat     = if_abap_behv=>mk-on ).
-    APPEND ls_latest TO ct_findings_rap.
+                           CHANGING  ct_findings    = ct_findings  ).
+    DATA(ls_latest_finding) = VALUE #( ct_findings[ lines( ct_findings ) ] OPTIONAL ).
+    IF ls_latest_finding IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    APPEND INITIAL LINE TO ct_findings_rap ASSIGNING FIELD-SYMBOL(<ls_rap>).
+
+    <ls_rap> = CORRESPONDING #( ls_latest_finding ).
+    <ls_rap>-%cid     = |FIND{ cv_cid_counter }|.
+
+    <ls_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                 cmruuid       = if_abap_behv=>mk-on
+                                 cmrid         = if_abap_behv=>mk-on
+                                 findingstatus = if_abap_behv=>mk-on
+                                 findingtype   = if_abap_behv=>mk-on
+                                 fieldname     = if_abap_behv=>mk-on
+                                 findingmsg    = if_abap_behv=>mk-on
+                                 createdby     = if_abap_behv=>mk-on
+                                 createdat     = if_abap_behv=>mk-on ).
+
     cv_cid_counter += 1.
   ENDMETHOD.
 
@@ -1744,22 +1804,27 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
           findingmsg    = |Gross weight must be greater than zero for item { is_item-itemposition }|
           createdby     = sy-uname
           createdat     = VALUE #( ) )
-      CHANGING  ct_findings    = ct_findings
-                cv_cid_counter = cv_cid_counter ).
-    DATA(ls_latest) = ct_findings_rap[ lines( ct_findings_rap ) ].
-    ls_latest-%cid     = |FIND{ cv_cid_counter }|.
-    ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                  cmruuid       = if_abap_behv=>mk-on
-                                  cmrid         = if_abap_behv=>mk-on
-                                  cmritemuuid   = if_abap_behv=>mk-on
-                                  itemposition  = if_abap_behv=>mk-on
-                                  findingstatus = if_abap_behv=>mk-on
-                                  findingtype   = if_abap_behv=>mk-on
-                                  fieldname     = if_abap_behv=>mk-on
-                                  findingmsg    = if_abap_behv=>mk-on
-                                  createdby     = if_abap_behv=>mk-on
-                                  createdat     = if_abap_behv=>mk-on ).
-    APPEND ls_latest TO ct_findings_rap.
+      CHANGING  ct_findings    = ct_findings ).
+    DATA(ls_latest_finding) = VALUE #( ct_findings[ lines( ct_findings ) ] OPTIONAL ).
+    IF ls_latest_finding IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    APPEND INITIAL LINE TO ct_findings_rap ASSIGNING FIELD-SYMBOL(<ls_rap>).
+
+    <ls_rap> = CORRESPONDING #( ls_latest_finding ).
+    <ls_rap>-%cid     = |FIND{ cv_cid_counter }|.
+
+    <ls_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                 cmruuid       = if_abap_behv=>mk-on
+                                 cmrid         = if_abap_behv=>mk-on
+                                 findingstatus = if_abap_behv=>mk-on
+                                 findingtype   = if_abap_behv=>mk-on
+                                 fieldname     = if_abap_behv=>mk-on
+                                 findingmsg    = if_abap_behv=>mk-on
+                                 createdby     = if_abap_behv=>mk-on
+                                 createdat     = if_abap_behv=>mk-on ).
+
     cv_cid_counter += 1.
   ENDMETHOD.
 
@@ -1785,22 +1850,27 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
                                findingmsg    = |Weight unit is missing for item { is_item-itemposition }|
                                createdby     = sy-uname
                                createdat     = VALUE #( ) )
-                           CHANGING  ct_findings    = ct_findings
-                                     cv_cid_counter = cv_cid_counter ).
-    DATA(ls_latest) = ct_findings_rap[ lines( ct_findings_rap ) ].
-    ls_latest-%cid     = |FIND{ cv_cid_counter }|.
-    ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                  cmruuid       = if_abap_behv=>mk-on
-                                  cmrid         = if_abap_behv=>mk-on
-                                  cmritemuuid   = if_abap_behv=>mk-on
-                                  itemposition  = if_abap_behv=>mk-on
-                                  findingstatus = if_abap_behv=>mk-on
-                                  findingtype   = if_abap_behv=>mk-on
-                                  fieldname     = if_abap_behv=>mk-on
-                                  findingmsg    = if_abap_behv=>mk-on
-                                  createdby     = if_abap_behv=>mk-on
-                                  createdat     = if_abap_behv=>mk-on ).
-    APPEND ls_latest TO ct_findings_rap.
+                           CHANGING  ct_findings    = ct_findings  ).
+    DATA(ls_latest_finding) = VALUE #( ct_findings[ lines( ct_findings ) ] OPTIONAL ).
+    IF ls_latest_finding IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    APPEND INITIAL LINE TO ct_findings_rap ASSIGNING FIELD-SYMBOL(<ls_rap>).
+
+    <ls_rap> = CORRESPONDING #( ls_latest_finding ).
+    <ls_rap>-%cid     = |FIND{ cv_cid_counter }|.
+
+    <ls_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                 cmruuid       = if_abap_behv=>mk-on
+                                 cmrid         = if_abap_behv=>mk-on
+                                 findingstatus = if_abap_behv=>mk-on
+                                 findingtype   = if_abap_behv=>mk-on
+                                 fieldname     = if_abap_behv=>mk-on
+                                 findingmsg    = if_abap_behv=>mk-on
+                                 createdby     = if_abap_behv=>mk-on
+                                 createdat     = if_abap_behv=>mk-on ).
+
     cv_cid_counter += 1.
   ENDMETHOD.
 
@@ -1824,22 +1894,28 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
                                  findingmsg    = |UN number required for dangerous goods item { is_item-itemposition }|
                                  createdby     = sy-uname
                                  createdat     = VALUE #( ) )
-                             CHANGING  ct_findings    = ct_findings
-                                       cv_cid_counter = cv_cid_counter ).
-      DATA(ls_latest) = ct_findings_rap[ lines( ct_findings_rap ) ].
-      ls_latest-%cid     = |FIND{ cv_cid_counter }|.
-      ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                    cmruuid       = if_abap_behv=>mk-on
-                                    cmrid         = if_abap_behv=>mk-on
-                                    cmritemuuid   = if_abap_behv=>mk-on
-                                    itemposition  = if_abap_behv=>mk-on
-                                    findingstatus = if_abap_behv=>mk-on
-                                    findingtype   = if_abap_behv=>mk-on
-                                    fieldname     = if_abap_behv=>mk-on
-                                    findingmsg    = if_abap_behv=>mk-on
-                                    createdby     = if_abap_behv=>mk-on
-                                    createdat     = if_abap_behv=>mk-on ).
-      APPEND ls_latest TO ct_findings_rap.
+                             CHANGING  ct_findings    = ct_findings  ).
+
+      DATA(ls_latest_finding) = VALUE #( ct_findings[ lines( ct_findings ) ] OPTIONAL ).
+      IF ls_latest_finding IS INITIAL.
+        RETURN.
+      ENDIF.
+
+      APPEND INITIAL LINE TO ct_findings_rap ASSIGNING FIELD-SYMBOL(<ls_rap>).
+
+      <ls_rap> = CORRESPONDING #( ls_latest_finding ).
+      <ls_rap>-%cid     = |FIND{ cv_cid_counter }|.
+
+      <ls_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                   cmruuid       = if_abap_behv=>mk-on
+                                   cmrid         = if_abap_behv=>mk-on
+                                   findingstatus = if_abap_behv=>mk-on
+                                   findingtype   = if_abap_behv=>mk-on
+                                   fieldname     = if_abap_behv=>mk-on
+                                   findingmsg    = if_abap_behv=>mk-on
+                                   createdby     = if_abap_behv=>mk-on
+                                   createdat     = if_abap_behv=>mk-on ).
+
       cv_cid_counter += 1.
     ENDIF.
 
@@ -1863,22 +1939,28 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
             findingmsg    = |Hazard class required for dangerous goods item { is_item-itemposition }|
             createdby     = sy-uname
             createdat     = VALUE #( ) )
-        CHANGING  ct_findings    = ct_findings
-                  cv_cid_counter = cv_cid_counter ).
-      ls_latest = ct_findings_rap[ lines( ct_findings_rap ) ].
-      ls_latest-%cid     = |FIND{ cv_cid_counter }|.
-      ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                    cmruuid       = if_abap_behv=>mk-on
-                                    cmrid         = if_abap_behv=>mk-on
-                                    cmritemuuid   = if_abap_behv=>mk-on
-                                    itemposition  = if_abap_behv=>mk-on
-                                    findingstatus = if_abap_behv=>mk-on
-                                    findingtype   = if_abap_behv=>mk-on
-                                    fieldname     = if_abap_behv=>mk-on
-                                    findingmsg    = if_abap_behv=>mk-on
-                                    createdby     = if_abap_behv=>mk-on
-                                    createdat     = if_abap_behv=>mk-on ).
-      APPEND ls_latest TO ct_findings_rap.
+        CHANGING  ct_findings    = ct_findings  ).
+
+      ls_latest_finding = VALUE #( ct_findings[ lines( ct_findings ) ] OPTIONAL ).
+      IF ls_latest_finding IS INITIAL.
+        RETURN.
+      ENDIF.
+
+      APPEND INITIAL LINE TO ct_findings_rap ASSIGNING <ls_rap>.
+
+      <ls_rap> = CORRESPONDING #( ls_latest_finding ).
+      <ls_rap>-%cid     = |FIND{ cv_cid_counter }|.
+
+      <ls_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                   cmruuid       = if_abap_behv=>mk-on
+                                   cmrid         = if_abap_behv=>mk-on
+                                   findingstatus = if_abap_behv=>mk-on
+                                   findingtype   = if_abap_behv=>mk-on
+                                   fieldname     = if_abap_behv=>mk-on
+                                   findingmsg    = if_abap_behv=>mk-on
+                                   createdby     = if_abap_behv=>mk-on
+                                   createdat     = if_abap_behv=>mk-on ).
+
       cv_cid_counter += 1.
     ENDIF.
 
@@ -1902,22 +1984,28 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
             findingmsg    = |Packing group required for dangerous goods item { is_item-itemposition }|
             createdby     = sy-uname
             createdat     = VALUE #( ) )
-        CHANGING  ct_findings    = ct_findings
-                  cv_cid_counter = cv_cid_counter ).
-      ls_latest = ct_findings_rap[ lines( ct_findings_rap ) ].
-      ls_latest-%cid     = |FIND{ cv_cid_counter }|.
-      ls_latest-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
-                                    cmruuid       = if_abap_behv=>mk-on
-                                    cmrid         = if_abap_behv=>mk-on
-                                    cmritemuuid   = if_abap_behv=>mk-on
-                                    itemposition  = if_abap_behv=>mk-on
-                                    findingstatus = if_abap_behv=>mk-on
-                                    findingtype   = if_abap_behv=>mk-on
-                                    fieldname     = if_abap_behv=>mk-on
-                                    findingmsg    = if_abap_behv=>mk-on
-                                    createdby     = if_abap_behv=>mk-on
-                                    createdat     = if_abap_behv=>mk-on ).
-      APPEND ls_latest TO ct_findings_rap.
+        CHANGING  ct_findings    = ct_findings  ).
+
+      ls_latest_finding = VALUE #( ct_findings[ lines( ct_findings ) ] OPTIONAL ).
+      IF ls_latest_finding IS INITIAL.
+        RETURN.
+      ENDIF.
+
+      APPEND INITIAL LINE TO ct_findings_rap ASSIGNING <ls_rap>.
+
+      <ls_rap> = CORRESPONDING #( ls_latest_finding ).
+      <ls_rap>-%cid     = |FIND{ cv_cid_counter }|.
+
+      <ls_rap>-%control = VALUE #( findinguuid   = if_abap_behv=>mk-on
+                                   cmruuid       = if_abap_behv=>mk-on
+                                   cmrid         = if_abap_behv=>mk-on
+                                   findingstatus = if_abap_behv=>mk-on
+                                   findingtype   = if_abap_behv=>mk-on
+                                   fieldname     = if_abap_behv=>mk-on
+                                   findingmsg    = if_abap_behv=>mk-on
+                                   createdby     = if_abap_behv=>mk-on
+                                   createdat     = if_abap_behv=>mk-on ).
+
       cv_cid_counter += 1.
     ENDIF.
   ENDMETHOD.

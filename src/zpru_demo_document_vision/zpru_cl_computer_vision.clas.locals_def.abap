@@ -441,8 +441,7 @@ CLASS lcl_adf_validate_cmr DEFINITION
 
     METHODS add_finding_to_output
       IMPORTING is_finding_rap TYPE  zpru_if_computer_vision=>ts_cmr_finding
-      CHANGING  ct_findings    TYPE zpru_if_computer_vision=>tt_cmr_finding
-                cv_cid_counter TYPE i.
+      CHANGING  ct_findings    TYPE zpru_if_computer_vision=>tt_cmr_finding.
 
     METHODS calculate_cmr_status
       IMPORTING is_header   TYPE zpru_if_computer_vision=>ts_cmr_header_context
