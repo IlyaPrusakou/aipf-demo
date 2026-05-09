@@ -55,12 +55,13 @@ CLASS lhc_zr_pru_message IMPLEMENTATION.
 
     TRY.
 
+        " agent code written in a way that only one message can be processed!!!
         ls_agent_input-message    = CORRESPONDING #( lt_root MAPPING FROM ENTITY ).
         ls_agent_input-attachment = CORRESPONDING #( lt_attachments MAPPING FROM ENTITY ).
         ls_prompt-type           = `\CLASS=ZBP_R_PRU_MESSAGE\TYPE=TS_DOC_RECOGNITION`.
 
         ls_prompt-string_content = /ui2/cl_json=>serialize( data     = ls_agent_input
-                                                            hex_as_base64 = abap_false
+                                                            hex_as_base64 = abap_TRUE
                                                             compress = abap_true ).
 
         lo_agent->plan_execution( EXPORTING iv_agent_name       = `DOC_VISUAL_RECOGNITION`
