@@ -486,7 +486,8 @@ CLASS lcl_adf_create_inb_delivery DEFINITION
       RETURNING VALUE(rt_create) TYPE tt_inb_delivery_header.
 
     METHODS prepare_delivery_item_entities
-      IMPORTING it_items         TYPE zpru_if_computer_vision=>tt_inb_delivery_item_context
+      IMPORTING it_headers_create  type tt_inb_delivery_header
+                it_items         TYPE zpru_if_computer_vision=>tt_inb_delivery_item_context
       RETURNING VALUE(rt_create) TYPE tt_inb_delivery_item.
 
     METHODS persist_inb_delivery_via_rap

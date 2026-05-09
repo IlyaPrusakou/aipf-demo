@@ -2066,13 +2066,14 @@ CLASS lcl_adf_create_inb_delivery IMPLEMENTATION.
   METHOD execute_code_int.
     DATA lt_cmr_header TYPE zpru_if_computer_vision=>tt_cmr_header_context.
     DATA lt_cmr_item   TYPE zpru_if_computer_vision=>tt_cmr_item_context.
+    DATA lt_headers_all TYPE zpru_if_computer_vision=>tt_inb_delivery_header_context.
+    DATA lt_items_all   TYPE zpru_if_computer_vision=>tt_inb_delivery_item_context.
+    DATA lt_delivery_header_ctx TYPE zpru_if_computer_vision=>tt_inb_delivery_header_context.
+    DATA lt_delivery_item_ctx   TYPE zpru_if_computer_vision=>tt_inb_delivery_item_context.
 
     deserialize_inb_delivery_input( EXPORTING is_input      = is_input
                                     IMPORTING et_cmr_header = lt_cmr_header
                                               et_cmr_item   = lt_cmr_item ).
-
-    DATA lt_headers_all TYPE zpru_if_computer_vision=>tt_inb_delivery_header_context.
-    DATA lt_items_all   TYPE zpru_if_computer_vision=>tt_inb_delivery_item_context.
 
     map_cmr_to_delivery_content( EXPORTING it_cmr_header  = lt_cmr_header
                                            it_cmr_item    = lt_cmr_item
@@ -2080,14 +2081,12 @@ CLASS lcl_adf_create_inb_delivery IMPLEMENTATION.
                                            et_items_all   = lt_items_all ).
 
     DATA(lt_create_head) = prepare_delivery_head_entities( lt_headers_all ).
-    DATA(lt_create_item) = prepare_delivery_item_entities( lt_items_all ).
+    DATA(lt_create_item) = prepare_delivery_item_entities( it_headers_create = lt_create_head
+                                                           it_items = lt_items_all ).
 
     IF lt_create_head IS INITIAL.
       RAISE EXCEPTION NEW zpru_cx_agent_core( ).
     ENDIF.
-
-    DATA lt_delivery_header_ctx TYPE zpru_if_computer_vision=>tt_inb_delivery_header_context.
-    DATA lt_delivery_item_ctx   TYPE zpru_if_computer_vision=>tt_inb_delivery_item_context.
 
     persist_inb_delivery_via_rap( EXPORTING it_create_header = lt_create_head
                                             it_create_item   = lt_create_item
@@ -2123,7 +2122,10 @@ CLASS lcl_adf_create_inb_delivery IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD map_cmr_to_delivery_content.
-    SELECT MAX( deliveryid ) FROM zprur_inbhdr INTO @DATA(lv_max_deliveryid).
+    SELECT MAX( deliveryid )
+    FROM zprur_inbhdr
+    INTO @DATA(lv_max_deliveryid).
+
     DATA(lv_next_num) = CONV i( lv_max_deliveryid ).
 
     LOOP AT it_cmr_header ASSIGNING FIELD-SYMBOL(<ls_cmr>).
@@ -2153,9 +2155,11 @@ CLASS lcl_adf_create_inb_delivery IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD prepare_delivery_head_entities.
+
+    DATA(lv_count) = 1.
     LOOP AT it_headers ASSIGNING FIELD-SYMBOL(<ls_header>).
       APPEND INITIAL LINE TO rt_create ASSIGNING FIELD-SYMBOL(<ls_entity>).
-      <ls_entity>-%cid         = '1'.
+      <ls_entity>-%cid         = lv_count.
       <ls_entity>-deliveryid   = <ls_header>-deliveryid.
       <ls_entity>-vendor       = <ls_header>-vendor.
       <ls_entity>-consignee    = <ls_header>-consignee.
@@ -2168,6 +2172,9 @@ CLASS lcl_adf_create_inb_delivery IMPLEMENTATION.
       <ls_entity>-%control-arrivalplace = if_abap_behv=>mk-on.
       <ls_entity>-%control-deliverydate = if_abap_behv=>mk-on.
       <ls_entity>-%control-cmrreference = if_abap_behv=>mk-on.
+
+      lv_count = lv_count + 1.
+
     ENDLOOP.
   ENDMETHOD.
 
@@ -2177,8 +2184,14 @@ CLASS lcl_adf_create_inb_delivery IMPLEMENTATION.
     LOOP AT it_items ASSIGNING FIELD-SYMBOL(<ls_item>)
          GROUP BY ( deliveryid = <ls_item>-deliveryid )
          ASSIGNING FIELD-SYMBOL(<group>).
+
+      ASSIGN it_headers_create[ deliveryid = <group>-deliveryid ] TO FIELD-SYMBOL(<ls_header>).
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
+
       APPEND INITIAL LINE TO rt_create ASSIGNING FIELD-SYMBOL(<ls_create_item>).
-      <ls_create_item>-%cid_ref = '1'.
+      <ls_create_item>-%cid_ref = <ls_header>-%cid.
 
       LOOP AT GROUP <group> ASSIGNING FIELD-SYMBOL(<ls_member>).
         APPEND INITIAL LINE TO <ls_create_item>-%target ASSIGNING FIELD-SYMBOL(<ls_target>).
@@ -2212,9 +2225,7 @@ CLASS lcl_adf_create_inb_delivery IMPLEMENTATION.
            CREATE BY \_inbitm
            FROM it_create_item
            MAPPED DATA(ls_mapped)
-           FAILED DATA(ls_failed)
-           " TODO: variable is assigned but never used (ABAP cleaner)
-           REPORTED DATA(ls_reported).
+           FAILED DATA(ls_failed).
 
     IF ls_failed IS NOT INITIAL.
       ev_error_flag = abap_true.
