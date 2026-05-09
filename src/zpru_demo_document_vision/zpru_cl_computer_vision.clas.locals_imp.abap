@@ -2311,9 +2311,6 @@ CLASS lcl_adf_create_warehouse_task IMPLEMENTATION.
                                                                   it_storage_bins = lt_storage_bins ).
 
     IF lt_warehouse_tasks_rap IS INITIAL.
-      APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv_empty>).
-      <ls_kv_empty>-name  = zpru_if_computer_vision=>cs_context_field-warehousetasks-field_name.
-      <ls_kv_empty>-value = ``.
       RETURN.
     ENDIF.
 
@@ -2410,9 +2407,7 @@ CLASS lcl_adf_create_warehouse_task IMPLEMENTATION.
            ENTITY task
            CREATE FROM it_tasks
            MAPPED DATA(ls_mapped)
-           FAILED DATA(ls_failed)
-           " TODO: variable is assigned but never used (ABAP cleaner)
-           REPORTED DATA(ls_reported).
+           FAILED DATA(ls_failed).
 
     IF ls_failed IS NOT INITIAL.
       ev_error_flag = abap_true.
