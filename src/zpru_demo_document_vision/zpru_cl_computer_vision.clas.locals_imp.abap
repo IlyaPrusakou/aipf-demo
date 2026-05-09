@@ -2459,51 +2459,102 @@ CLASS lcl_adf_tool_info_provider IMPLEMENTATION.
   METHOD get_main_tool_info.
     CASE is_tool_master_data-toolname.
       WHEN `CREATE_CMR`.
-        ev_toolname        = `CREATE_CMR`.
+        ev_toolname        = zpru_if_computer_vision=>cs_tools-create_cmr.
         ev_tooldesciption  = `Create CMR`.
-        ev_toolexplanation = `Parse extracted CMR JSON from LLM response, deserialize creation content,` &&
-         `assign sequential CMR IDs, prepare and persist CMR headers and items via RAP entities (zr_pru_cmr_header/zrprucmrheader, zrprucmritem), then append out` &&
-         `context fields CMRHEADERS, CMRITEMS, and CMRCREATIONCONTENT as key-value pairs.`.
+        ev_toolexplanation =
+          `Deserializes CMR creation content (JSON from LLM extraction) into TT_CMR_CREATE_CONTENT structure via /UI2/CL_JSON. ` &&
+          `Aggregates all CMR headers (TT_CMR_HEADER_CONTEXT) and items (TT_CMR_ITEM_CONTEXT) from the creation content. ` &&
+          `Assigns sequential CMR IDs by SELECT MAX(cmrid) from zr_pru_cmr_header + 1 increment. ` &&
+          `Prepares RAP entities for zr_pru_cmr_header (zrprucmrheader) and zrprucmritem via CREATE with %cid references. ` &&
+          `Persists via MODIFY ENTITIES, then reads back mapped UUIDs. ` &&
+          `Finally appends output context fields: CMRHEADERS (TT_CMR_HEADER_CONTEXT), CMRITEMS (TT_CMR_ITEM_CONTEXT), ` &&
+          `and CMRCREATIONCONTENT (TT_CMR_CREATE_CONTENT) as JSON-serialized key-value pairs. ` &&
+          `Input type: \INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_CMR_CREATE_REQUEST. ` &&
+          `Consumes context: CMRCREATIONCONTENT. Produces context: CMRHEADERS, CMRITEMS, CMRCREATIONCONTENT.`.
         ev_tooltype        = zpru_if_adf_type_and_constant=>cs_step_type-abap_code.
 
       WHEN `CLASSIFY_DANGER_GOODS`.
-        ev_toolname        = `CLASSIFY_DANGER_GOODS`.
-        ev_tooldesciption  = `Dangerous goods classification`.
-        ev_toolexplanation = `Deserialize CMR items from input, then classify each item for dangerous goods by checking` &&
-        `explicit fields (hazard class, UN number) and free-text heuristics on nature of goods (explosive, flammable gas/liquid/solid, oxidiser,` &&
-        `toxic, infectious, radioactive, corrosive, other hazardous materials). Create alert entities for detected dangerous goods with alert type 'DANGER_GOODS',` &&
-        ` persist via RAP (zr_pru_cmr_alert/zrprucmralert), and append CMRALERTS context field.`.
+        ev_toolname        = zpru_if_computer_vision=>cs_tools-classify_danger_goods.
+        ev_tooldesciption  = `Classify Dangerous Goods`.
+        ev_toolexplanation =
+          `Deserializes CMR items from input JSON (CMRITEMS field) into TT_CMR_ITEM_CONTEXT. ` &&
+          `Iterates each item and applies multi-step dangerous goods classification: ` &&
+          `1) Explicit hazard class detection via check_danger_by_hazard_class. ` &&
+          `2) Explicit UN number detection via check_danger_by_un_number. ` &&
+          `3) Free-text heuristics on upper-cased nature of goods: EXPLOS, flammable gas (LPG/LNG/propane/butane/acetylene/hydrogen), ` &&
+          `flammable liquid (petrol/diesel/kerosene/ethanol/methanol/acetone/benzene/toluene/fuel oil), ` &&
+          `flammable solid (phosphorus/sulphur/magnesium/aluminium powder), oxidiser/peroxide/permanganate/chlorate/nitrate/perchlorate, ` &&
+          `toxic/poison/pesticide/cyanide/arsenic/mercury/chlorine/ammonia/formaldehyde, ` &&
+          `infectious/pathogen/clinical waste, radioactive/nuclear/uranium/plutonium, ` &&
+          `corrosive/acid/caustic/sulphuric/hydrochloric/sodium hydroxide, ` &&
+          `other hazardous (lithium battery/dry ice/magnetized). ` &&
+          `For each dangerous item, creates alert entity with type 'DANGER_GOODS' and persists via RAP (zr_pru_cmr_alert/zrprucmralert). ` &&
+          `Appends output context field: CMRALERTS (TT_CMR_ALERT_CONTEXT). ` &&
+          `Input type: \INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_CMR_CLASSIFY_REQ. ` &&
+          `Consumes context: CMRHEADERS, CMRITEMS, CMRCREATIONCONTENT. Produces context: CMRALERTS.`.
         ev_tooltype        = zpru_if_adf_type_and_constant=>cs_step_type-abap_code.
 
       WHEN `VALIDATE_CMR`.
-        ev_toolname        = `VALIDATE_CMR`.
+        ev_toolname        = zpru_if_computer_vision=>cs_tools-validate_cmr.
         ev_tooldesciption  = `Validate CMR`.
-        ev_toolexplanation = `Deserialize CMR headers and items from input, then validate mandatory fields: sender info, consignee info, carrier info, taking-over place,` &&
-        ` delivery place, taking-over date, currency (when cash on delivery is set), item count` &&
-        ` nature of goods, gross weight, weight unit. Also validate dangerous goods fields (UN number, hazard class, packing group). Create findings with status 'INCOMPLETE' or 'INVALID',` &&
-        ` persist via RAP (zr_pru_cmr_valid/zrprucmrvalid), calculate overall CMR status (VALID/INCOMPLETE/INVALID), and append CMRSTATUS and CMRFINDING context fields.`.
+        ev_toolexplanation =
+          `Deserializes CMR headers and items from input JSON (CMRHEADERS, CMRITEMS) into TT_CMR_HEADER_CONTEXT and TT_CMR_ITEM_CONTEXT. ` &&
+          `Iterates each CMR header and applies the following validations: ` &&
+          `Header-level: senderinfo, consigneeinfo, carrierinfo, takingoverplace, deliveryplace (all mandatory - status INCOMPLETE if missing), ` &&
+          `takingoverdate (mandatory date check - status INCOMPLETE if missing/zero), ` &&
+          `currency (INCOMPLETE if cashondelivery>0 but currency empty), ` &&
+          `item count (INVALID if no items associated with header). ` &&
+          `Item-level: natureofgoods (mandatory), grossweight (must be >0), weightunitfield (mandatory), ` &&
+          `DG fields (unitednationnumber, hazardclass, packinggroup - all INCOMPLETE if missing). ` &&
+          `Creates finding entities with UUID, timestamps, and persists via RAP (zr_pru_cmr_valid/zrprucmrvalid). ` &&
+          `Calculates overall CMR status per header: VALID (no findings), INCOMPLETE (findings exist), INVALID (item_count finding). ` &&
+          `Appends output context fields: CMRSTATUS (TT_CMR_OVERALL_STATUS) and CMRFINDING (TT_CMR_FINDING). ` &&
+          `Input type: \INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_CMR_VALIDATE_REQ. ` &&
+          `Consumes context: CMRHEADERS, CMRITEMS, CMRCREATIONCONTENT. Produces context: CMRSTATUS, CMRFINDING.`.
         ev_tooltype        = zpru_if_adf_type_and_constant=>cs_step_type-abap_code.
 
       WHEN `CREATE_INB_DELIVERY`.
-        ev_toolname        = `CREATE_INB_DELIVERY`.
+        ev_toolname        = zpru_if_computer_vision=>cs_tools-create_inb_delivery.
         ev_tooldesciption  = `Create Inbound Delivery`.
-        ev_toolexplanation = `Deserialize CMR headers and items, map them to inbound delivery structures by generating sequential delivery IDs, mapping CMR reference, vendor/sender, consignee, arrival/delivery place,` &&
-        ` and item details (material description` &&
-        ` quantity, weight, hazard class). Prepare and persist inbound delivery headers and items via RAP (zprur_inbhdr/inbhdr, inbitm), then append INBDELIVERYHEADERS and INBDELIVERYITEMS context fields.`.
+        ev_toolexplanation =
+          `Deserializes CMR headers and items from input JSON (CMRHEADERS, CMRITEMS) into TT_CMR_HEADER_CONTEXT and TT_CMR_ITEM_CONTEXT. ` &&
+          `Maps CMR data to inbound delivery structures by: generating sequential delivery IDs via SELECT MAX(deliveryid) from zprur_inbhdr + 1, ` &&
+          `mapping CMR reference (cmrid), vendor (senderinfo), consignee (consigneeinfo), arrival place (deliveryplace), ` &&
+          `delivery date (takingoverdate), and item details (itemposition->itempos, natureofgoods->materialdesc, ` &&
+          `packagecount->quantity, weightunitfield->unit/weightunit, grossweight, hazardclass). ` &&
+          `Prepares RAP entities for zprur_inbhdr/inbhdr (headers) and inbitm (items) via CREATE with %cid references. ` &&
+          `Persists via MODIFY ENTITIES, reads back mapped fields. ` &&
+          `Appends output context fields: INBDELIVERYHEADERS (TT_INB_DELIVERY_HEADER_CONTEXT) and ` &&
+          `INBDELIVERYITEMS (TT_INB_DELIVERY_ITEM_CONTEXT) as JSON-serialized key-value pairs. ` &&
+          `Input type: \INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_INB_DELIVERY_CREATE_REQUEST. ` &&
+          `Consumes context: CMRHEADERS, CMRITEMS, CMRCREATIONCONTENT. Produces context: INBDELIVERYHEADERS, INBDELIVERYITEMS, INBDELIVERYCREATIONCONTENT.`.
         ev_tooltype        = zpru_if_adf_type_and_constant=>cs_step_type-abap_code.
 
       WHEN `FIND_STORAGE_BIN`.
-        ev_toolname        = `FIND_STORAGE_BIN`.
+        ev_toolname        = zpru_if_computer_vision=>cs_tools-find_storage_bin.
         ev_tooldesciption  = `Find Storage Bin`.
-        ev_toolexplanation = `Query available (non-blocked) storage bins from database table ZPRUSTORBIN ordered by bin_id, then serialize the result and append STORAGEBINS context field with the list of available bins for warehouse task allocation.`.
+        ev_toolexplanation =
+          `Executes SELECT * FROM zprustorbin WHERE is_blocked = @abap_false ORDER BY bin_id to query available storage bins. ` &&
+          `Returns TT_STORAGE_BIN_CONTEXT with all non-blocked storage bins. ` &&
+          `This is a read-only tool; no RAP persistence involved. ` &&
+          `Appends output context field: STORAGEBINS (TT_STORAGE_BIN_CONTEXT). ` &&
+          `Input type: \INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_FIND_STORAGE_BIN_REQUEST. ` &&
+          `Consumes context: CMRHEADERS, CMRITEMS, INBDELIVERYHEADERS, INBDELIVERYITEMS (for reference). Produces context: STORAGEBINS.`.
         ev_tooltype        = zpru_if_adf_type_and_constant=>cs_step_type-abap_code.
 
       WHEN `CREATE_WAREHOUSE_TASK`.
-        ev_toolname        = `CREATE_WAREHOUSE_TASK`.
+        ev_toolname        = zpru_if_computer_vision=>cs_tools-create_warehouse_task.
         ev_tooldesciption  = `Create Warehouse Task`.
-        ev_toolexplanation = `Deserialize inbound delivery headers, items, and storage bins from input. Generate sequential warehouse task numbers via SELECT MAX(tanum).` &&
-        ` Build warehouse task entities for each inbound item, assigning the first available non-blocked storage bin as destination,` &&
-        ` 'RECEIVING' as source, and confirmation status 'O' (open). Persist tasks via RAP (zprur_task/task), then append WAREHOUSETASKS context field.`.
+        ev_toolexplanation =
+          `Deserializes inbound delivery headers (INBDELIVERYHEADERS), items (INBDELIVERYITEMS), and storage bins (STORAGEBINS) from input. ` &&
+          `Generates sequential warehouse task numbers via SELECT MAX(tanum) from zprur_task + 1. ` &&
+          `For each inbound item, builds a warehouse task entity with: ` &&
+          `sourcebin = 'RECEIVING', destbin = first available non-blocked storage bin, confstatus = 'O' (open). ` &&
+          `Populates deliveryid, itempos, material (materialdesc), quantity, unit from inbound item data. ` &&
+          `Persists tasks via RAP (zprur_task/task) using MODIFY ENTITIES, reads back created tasks. ` &&
+          `Appends output context field: WAREHOUSETASKS (TT_WAREHOUSE_TASK_CONTEXT). ` &&
+          `Input type: \INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_CREATE_WHSE_TASK_REQUEST. ` &&
+          `Consumes context: INBDELIVERYHEADERS, INBDELIVERYITEMS, STORAGEBINS. Produces context: WAREHOUSETASKS.`.
         ev_tooltype        = zpru_if_adf_type_and_constant=>cs_step_type-abap_code.
 
       WHEN OTHERS.
@@ -2516,103 +2567,159 @@ CLASS lcl_adf_tool_info_provider IMPLEMENTATION.
       WHEN `CREATE_CMR`.
         rt_perameters = VALUE #( BASE rt_perameters
           ( parametername        = `CMRCREATIONCONTENT`
-            parameterdescription = `JSON string containing CMR creation content with headers and items extracted from LLM response`
+            parameterdescription =
+              `JSON data extracted by the LLM from document,` && |\n| &&
+              `contains headers and items parsed from the CMR document`
             parametertype        = cl_abap_objectdescr=>exporting  )
-          ( parametername        = `CMRCREATIONCONTENT`
-            parameterdescription = ``
+          ( parametername        = `CMRHEADERS`
+            parameterdescription =
+              `CMR headers saved in database,` && |\n| &&
+              `each header contains sender, consignee, carrier, dates and places`
             parametertype        = cl_abap_objectdescr=>importing  )
           ( parametername        = `CMRITEMS`
-            parameterdescription = ``
+            parameterdescription =
+              `CMR items saved in database,` && |\n| &&
+              `each item contains goods description, weight, volume and packaging info`
             parametertype        = cl_abap_objectdescr=>importing  )
-          ( parametername        = `CMRHEADERS`
-            parameterdescription = ``
+          ( parametername        = `CMRCREATIONCONTENT`
+            parameterdescription =
+              `Original LLM extraction result,` && |\n| &&
+              `passed forward for use by downstream tools`
             parametertype        = cl_abap_objectdescr=>importing  ) ).
 
       WHEN `CLASSIFY_DANGER_GOODS`.
         rt_perameters = VALUE #( BASE rt_perameters
           ( parametername        = `CMRHEADERS`
-            parameterdescription = `JSON string with CMR header context data for item classification context`
+            parameterdescription =
+              `CMR headers used to link items back to their header,` && |\n| &&
+              `needed for creating alerts with header context`
             parametertype        = cl_abap_objectdescr=>exporting   )
           ( parametername        = `CMRITEMS`
-            parameterdescription = `JSON string with CMR item data to classify for dangerous goods`
+            parameterdescription =
+              `CMR items to be classified for dangerous goods,` && |\n| &&
+              `checks hazard class, UN number and goods description`
             parametertype        = cl_abap_objectdescr=>exporting  )
           ( parametername        = `CMRCREATIONCONTENT`
-            parameterdescription = `JSON string with original CMR creation content for reference`
+            parameterdescription =
+              `Original extraction data carried over,` && |\n| &&
+              `provides context for alert creation`
             parametertype        = cl_abap_objectdescr=>exporting   )
-          ( parametername        = `cmralerts`
-            parameterdescription = ``
+          ( parametername        = `CMRALERTS`
+            parameterdescription =
+              `Dangerous goods alerts saved in database,` && |\n| &&
+              `each alert states which item is dangerous and why`
             parametertype        = cl_abap_objectdescr=>importing   ) ).
 
       WHEN `VALIDATE_CMR`.
         rt_perameters = VALUE #( BASE rt_perameters
           ( parametername        = `CMRHEADERS`
-            parameterdescription = `JSON string with CMR header context for validation of mandatory fields`
+            parameterdescription =
+              `CMR headers used for checking mandatory fields,` && |\n| &&
+              `validates sender, consignee, carrier, places and dates`
             parametertype        = cl_abap_objectdescr=>exporting  )
           ( parametername        = `CMRITEMS`
-            parameterdescription = `JSON string with CMR item context for item-level validation`
+            parameterdescription =
+              `CMR items used for checking,` && |\n| &&
+              `validates goods description, weight, units and dangerous goods fields`
             parametertype        = cl_abap_objectdescr=>exporting )
           ( parametername        = `CMRCREATIONCONTENT`
-            parameterdescription = `JSON string with original CMR creation content for reference validation`
+            parameterdescription =
+              `Original extraction data carried over,` && |\n| &&
+              `provides context for creating validation findings`
             parametertype        = cl_abap_objectdescr=>exporting  )
           ( parametername        = `CMRSTATUS`
-            parameterdescription = ``
+            parameterdescription =
+              `Overall validation status per CMR,` && |\n| &&
+              `can be VALID, INCOMPLETE or INVALID`
             parametertype        = cl_abap_objectdescr=>importing  )
           ( parametername        = `CMRFINDING`
-            parameterdescription = ``
+            parameterdescription =
+              `List of validation issues found,` && |\n| &&
+              `each finding includes which field failed and suggested fix`
             parametertype        = cl_abap_objectdescr=>importing  ) ).
 
       WHEN `CREATE_INB_DELIVERY`.
         rt_perameters = VALUE #( BASE rt_perameters
           ( parametername        = `CMRHEADERS`
-            parameterdescription = `JSON string with CMR header context mapped to inbound delivery headers`
+            parameterdescription =
+              `CMR headers transformed into inbound delivery headers,` && |\n| &&
+              `maps CMR data to vendor, consignee, delivery date and place`
             parametertype        = cl_abap_objectdescr=>exporting )
           ( parametername        = `CMRITEMS`
-            parameterdescription = `JSON string with CMR item context mapped to inbound delivery items`
+            parameterdescription =
+              `CMR items transformed into inbound delivery items,` && |\n| &&
+              `maps item position, material description, quantity and weight`
             parametertype        = cl_abap_objectdescr=>exporting )
           ( parametername        = `CMRCREATIONCONTENT`
-            parameterdescription = `JSON string with original CMR creation content for audit reference`
+            parameterdescription =
+              `Original extraction data carried over,` && |\n| &&
+              `provides audit trail for inbound creation`
             parametertype        = cl_abap_objectdescr=>exporting )
           ( parametername        = `INBDELIVERYHEADERS`
-            parameterdescription = ``
+            parameterdescription =
+              `Inbound delivery headers saved in database,` && |\n| &&
+              `contains delivery ID, vendor, consignee and arrival details`
             parametertype        = cl_abap_objectdescr=>importing  )
           ( parametername        = `INBDELIVERYITEMS`
-            parameterdescription = ``
+            parameterdescription =
+              `Inbound delivery items saved in database,` && |\n| &&
+              `contains item position, material, quantity and hazard info`
             parametertype        = cl_abap_objectdescr=>importing  )
           ( parametername        = `INBDELIVERYCREATIONCONTENT`
-            parameterdescription = ``
+            parameterdescription =
+              `Creation data passed to next tools,` && |\n| &&
+              `used as input for finding storage bins and creating warehouse tasks`
             parametertype        = cl_abap_objectdescr=>importing  ) ).
 
       WHEN `FIND_STORAGE_BIN`.
         rt_perameters = VALUE #( BASE rt_perameters
           ( parametername        = `CMRHEADERS`
-            parameterdescription = `JSON string with CMR headers used for bin search context (optional)`
+            parameterdescription =
+              `CMR headers passed through for continuity,` && |\n| &&
+              `not directly used by this tool`
             parametertype        = cl_abap_objectdescr=>exporting  )
           ( parametername        = `CMRITEMS`
-            parameterdescription = `JSON string with CMR items used for bin search context (optional)`
+            parameterdescription =
+              `CMR items passed through for continuity,` && |\n| &&
+              `not directly used by this tool`
             parametertype        = cl_abap_objectdescr=>exporting  )
           ( parametername        = `INBDELIVERYHEADERS`
-            parameterdescription = `JSON string with inbound delivery headers for bin search reference`
+            parameterdescription =
+              `Inbound delivery headers passed to next tools,` && |\n| &&
+              `preserved for warehouse task creation step`
             parametertype        = cl_abap_objectdescr=>exporting  )
           ( parametername        = `INBDELIVERYITEMS`
-            parameterdescription = `JSON string with inbound delivery items to determine bin requirements`
+            parameterdescription =
+              `Inbound delivery items passed to next tools,` && |\n| &&
+              `preserved for warehouse task creation step`
             parametertype        = cl_abap_objectdescr=>exporting  )
           ( parametername        = `STORAGEBINS`
-            parameterdescription = `JSON string with inbound delivery items to determine bin requirements`
+            parameterdescription =
+              `Available storage bins found in database,` && |\n| &&
+              `only non-blocked bins are returned`
             parametertype        = cl_abap_objectdescr=>importing  ) ).
 
       WHEN `CREATE_WAREHOUSE_TASK`.
         rt_perameters = VALUE #( BASE rt_perameters
           ( parametername        = `INBDELIVERYHEADERS`
-            parameterdescription = `JSON string with inbound delivery headers for warehouse task creation`
+            parameterdescription =
+              `Inbound delivery headers providing task context,` && |\n| &&
+              `includes delivery ID and arrival details`
             parametertype        = cl_abap_objectdescr=>exporting )
           ( parametername        = `INBDELIVERYITEMS`
-            parameterdescription = `JSON string with inbound delivery items to create warehouse tasks for`
+            parameterdescription =
+              `Inbound delivery items to create tasks for,` && |\n| &&
+              `each item becomes a warehouse task with source and destination bin`
             parametertype        = cl_abap_objectdescr=>exporting )
           ( parametername        = `STORAGEBINS`
-            parameterdescription = `JSON string with available storage bins for task destination assignment`
+            parameterdescription =
+              `Available storage bins for task destination,` && |\n| &&
+              `first available bin is assigned to each task`
             parametertype        = cl_abap_objectdescr=>exporting  )
           ( parametername        = `WAREHOUSETASKS`
-            parameterdescription = `JSON string with available storage bins for task destination assignment`
+            parameterdescription =
+              `Warehouse tasks saved in database,` && |\n| &&
+              `each task contains source bin, destination bin, material and quantity`
             parametertype        = cl_abap_objectdescr=>importing  ) ).
 
       WHEN OTHERS.
@@ -2722,9 +2829,155 @@ CLASS lcl_adf_schema_provider IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_input_json_schema.
-*    " Return the JSON schema for the tool input
-*    " For ABAP-code tools, the schema is derived from the ABAP structure type
-*    ro_json_schema ?= cl_abap_structdescr=>describe_by_name(
-*      p_name = |\INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_TOOL_INPUT_SCHEMA| ).
+    DATA: ls_schema TYPE zpru_s_json_schema.
+
+    CASE is_tool_master_data-toolname.
+      WHEN `CREATE_CMR`.
+        ls_schema = fill_cmr_create_schm( ).
+      WHEN `CLASSIFY_DANGER_GOODS`.
+        ls_schema = fill_class_dgr_schm( ).
+      WHEN `VALIDATE_CMR`.
+        ls_schema = fill_val_cmr_schm( ).
+      WHEN `CREATE_INB_DELIVERY`.
+        ls_schema = fill_inb_del_schm( ).
+      WHEN `FIND_STORAGE_BIN`.
+        ls_schema = fill_find_bin_schm( ).
+      WHEN `CREATE_WAREHOUSE_TASK`.
+        ls_schema = fill_wh_task_schm( ).
+      WHEN OTHERS.
+        RAISE EXCEPTION NEW zpru_cx_agent_core( ).
+    ENDCASE.
+
+    ev_json_schema = /ui2/cl_json=>serialize( data          = ls_schema
+                                              hex_as_base64 = abap_true
+                                              compress      = abap_true ).
+    es_json_structure = ls_schema.
+  ENDMETHOD.
+
+  METHOD get_cmr_create.
+    rv_schema =
+      |\{| &&
+      |  "type": "object",| &&
+      |  "properties": \{| &&
+      |    "cmrcreationcontent": \{ "type": "string", "description": "JSON string containing extracted CMR headers and items from the LLM document extraction" \}| &&
+      |  \},| &&
+      |  "required": ["cmrcreationcontent"]| &&
+      |\}|.
+  ENDMETHOD.
+
+  METHOD get_classify_danger_goods.
+    rv_schema =
+      |\{| &&
+      |  "type": "object",| &&
+      |  "properties": \{| &&
+      |    "cmrheaders": \{ "type": "string", "description": "JSON-serialized CMR headers context (TT_CMR_HEADER_CONTEXT)" \},| &&
+      |    "cmritems": \{ "type": "string", "description": "JSON-serialized CMR items context (TT_CMR_ITEM_CONTEXT) to be classified" \},| &&
+      |    "cmrcreationcontent": \{ "type": "string", "description": "JSON-serialized original LLM extraction content (TT_CMR_CREATE_CONTENT)" \}| &&
+      |  \},| &&
+      |  "required": ["cmritems"]| &&
+      |\}|.
+  ENDMETHOD.
+
+  METHOD get_validate_cmr.
+    rv_schema =
+      |\{| &&
+      |  "type": "object",| &&
+      |  "properties": \{| &&
+      |    "cmrheaders": \{ "type": "string", "description": "JSON-serialized CMR headers context (TT_CMR_HEADER_CONTEXT) to validate" \},| &&
+      |    "cmritems": \{ "type": "string", "description": "JSON-serialized CMR items context (TT_CMR_ITEM_CONTEXT) to validate" \},| &&
+      |    "cmrcreationcontent": \{ "type": "string", "description": "JSON-serialized original LLM extraction content (TT_CMR_CREATE_CONTENT)" \}| &&
+      |  \},| &&
+      |  "required": ["cmrheaders", "cmritems"]| &&
+      |\}|.
+  ENDMETHOD.
+
+  METHOD get_create_inb_delivery.
+    rv_schema =
+      |\{| &&
+      |  "type": "object",| &&
+      |  "properties": \{| &&
+      |    "cmrheaders": \{ "type": "string", "description": "JSON-serialized CMR headers context (TT_CMR_HEADER_CONTEXT) to map to inbound delivery" \},| &&
+      |    "cmritems": \{ "type": "string", "description": "JSON-serialized CMR items context (TT_CMR_ITEM_CONTEXT) to map to inbound delivery items" \},| &&
+      |    "cmrcreationcontent": \{ "type": "string", "description": "JSON-serialized original LLM extraction content (TT_CMR_CREATE_CONTENT)" \}| &&
+      |  \},| &&
+      |  "required": ["cmrheaders", "cmritems"]| &&
+      |\}|.
+  ENDMETHOD.
+
+  METHOD get_find_storage_bin.
+    rv_schema =
+      |\{| &&
+      |  "type": "object",| &&
+      |  "properties": \{| &&
+      |    "cmrheaders": \{ "type": "string", "description": "JSON-serialized CMR headers context (TT_CMR_HEADER_CONTEXT) passed through for continuity" \},| &&
+      |    "cmritems": \{ "type": "string", "description": "JSON-serialized CMR items context (TT_CMR_ITEM_CONTEXT) passed through for continuity" \},| &&
+      |    "inbdeliveryheaders": \{ "type": "string", "description": "JSON-serialized inbound delivery headers (TT_INB_DELIVERY_HEADER_CONTEXT)" \},| &&
+      |    "inbdeliveryitems": \{ "type": "string", "description": "JSON-serialized inbound delivery items (TT_INB_DELIVERY_ITEM_CONTEXT)" \}| &&
+      |  \},| &&
+      |  "required": []| &&
+      |\}|.
+  ENDMETHOD.
+
+  METHOD get_create_warehouse_task.
+    rv_schema =
+      |\{| &&
+      |  "type": "object",| &&
+      |  "properties": \{| &&
+      |    "inbdeliveryheaders": \{ "type": "string", "description": "JSON-serialized inbound delivery headers (TT_INB_DELIVERY_HEADER_CONTEXT) providing task context" \},| &&
+      |    "inbdeliveryitems": \{ "type": "string", "description": "JSON-serialized inbound delivery items (TT_INB_DELIVERY_ITEM_CONTEXT) to create tasks for" \},| &&
+      |    "storagebins": \{ "type": "string", "description": "JSON-serialized available storage bins (TT_STORAGE_BIN_CONTEXT) for task destination assignment" \}| &&
+      |  \},| &&
+      |  "required": ["inbdeliveryheaders", "inbdeliveryitems", "storagebins"]| &&
+      |\}|.
+  ENDMETHOD.
+
+  METHOD fill_cmr_create_schm.
+    rs_schema-schemaname    = `TS_CMR_CREATE_REQUEST`.
+    rs_schema-schematitle   = `Create CMR Request`.
+    rs_schema-schemadesc    = `Input for CMR creation tool`.
+    rs_schema-sourcetype    = `\INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_CMR_CREATE_REQUEST`.
+    rs_schema-rootstructure = `ZPRU_IF_COMPUTER_VISION=>TS_CMR_CREATE_REQUEST`.
+  ENDMETHOD.
+
+  METHOD fill_class_dgr_schm.
+    rs_schema-schemaname    = `TS_CMR_CLASSIFY_REQ`.
+    rs_schema-schematitle   = `Classify Dangerous Goods Request`.
+    rs_schema-schemadesc    = `Input for dangerous goods classification tool`.
+    rs_schema-sourcetype    = `\INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_CMR_CLASSIFY_REQ`.
+    rs_schema-rootstructure = `ZPRU_IF_COMPUTER_VISION=>TS_CMR_CLASSIFY_REQ`.
+  ENDMETHOD.
+
+  METHOD fill_val_cmr_schm.
+    rs_schema-schemaname    = `TS_CMR_VALIDATE_REQ`.
+    rs_schema-schematitle   = `Validate CMR Request`.
+    rs_schema-schemadesc    = `Input for CMR validation tool`.
+    rs_schema-sourcetype    = `\INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_CMR_VALIDATE_REQ`.
+    rs_schema-rootstructure = `ZPRU_IF_COMPUTER_VISION=>TS_CMR_VALIDATE_REQ`.
+  ENDMETHOD.
+
+  METHOD fill_inb_del_schm.
+    rs_schema-schemaname    = `TS_INB_DELIVERY_CREATE_REQUEST`.
+    rs_schema-schematitle   = `Create Inbound Delivery Request`.
+    rs_schema-schemadesc    = `Input for inbound delivery creation tool`.
+    rs_schema-sourcetype    = `\INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_INB_DELIVERY_CREATE_REQUEST`.
+    rs_schema-rootstructure = `ZPRU_IF_COMPUTER_VISION=>TS_INB_DELIVERY_CREATE_REQUEST`.
+  ENDMETHOD.
+
+  METHOD fill_find_bin_schm.
+    rs_schema-schemaname    = `TS_FIND_STORAGE_BIN_REQUEST`.
+    rs_schema-schematitle   = `Find Storage Bin Request`.
+    rs_schema-schemadesc    = `Input for storage bin lookup tool`.
+    rs_schema-sourcetype    = `\INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_FIND_STORAGE_BIN_REQUEST`.
+    rs_schema-rootstructure = `ZPRU_IF_COMPUTER_VISION=>TS_FIND_STORAGE_BIN_REQUEST`.
+  ENDMETHOD.
+
+  METHOD fill_wh_task_schm.
+    rs_schema-schemaname    = `TS_CREATE_WHSE_TASK_REQUEST`.
+    rs_schema-schematitle   = `Create Warehouse Task Request`.
+    rs_schema-schemadesc    = `Input for warehouse task creation tool`.
+    rs_schema-sourcetype    = `\INTERF=ZPRU_IF_COMPUTER_VISION\TYPE=TS_CREATE_WHSE_TASK_REQUEST`.
+    rs_schema-rootstructure = `ZPRU_IF_COMPUTER_VISION=>TS_CREATE_WHSE_TASK_REQUEST`.
   ENDMETHOD.
 ENDCLASS.
+
+
