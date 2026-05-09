@@ -19,8 +19,8 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
       lo_http_request->set_text( i_text = lv_string_payload ).
     ENDIF.
 
-*    set_http_request_body( EXPORTING io_http_client = lo_http_client
-*                                    iv_json_payload   = lv_string_payload ).
+*    execute_llm( EXPORTING io_http_client = lo_http_client
+*                           iv_json_payload   = lv_string_payload ).
 *
 
     DATA(lv_raw_response) = get_mock_test_response( ).
@@ -167,7 +167,14 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
     ENDIF.
 
     APPEND INITIAL LINE TO <ls_req>-contents ASSIGNING FIELD-SYMBOL(<ls_content>).
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
     APPEND INITIAL LINE TO <ls_content>-parts ASSIGNING FIELD-SYMBOL(<ls_part>).
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
 
     add_system_instructions( EXPORTING iv_json_schema = iv_json_schema
                              CHANGING  cs_part        = <ls_part> ).
@@ -327,7 +334,7 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
           APPEND INITIAL LINE TO lt_header ASSIGNING FIELD-SYMBOL(<ls_header>).
           <ls_header> = CORRESPONDING #( <ls_raw_header> ).
           TRY.
-              <ls_header>-cmruuid = cl_system_uuid=>create_uuid_x16_static( ).
+              <ls_header>-cmruuid = cl_system_uuid=>create_uuid_x16_static( ). " temporal uuid, after save will be changed
             CATCH cx_uuid_error.
               ASSERT 1 = 2.
           ENDTRY.
@@ -359,10 +366,12 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD set_final_response_content.
-    DATA(lo_axc_service) = get_axc_service_instance( ).
     DATA lt_axc_head  TYPE zpru_if_axc_type_and_constant=>tt_axc_head.
     DATA lt_axc_query TYPE zpru_if_axc_type_and_constant=>tt_axc_query.
     DATA lt_axc_steps TYPE zpru_if_axc_type_and_constant=>tt_axc_step.
+    DATA ls_recognition_output TYPE zbp_r_pru_message=>ts_recognition_output.
+
+    DATA(lo_axc_service) = get_axc_service_instance( ).
 
     read_execution_data( EXPORTING iv_run_uuid    = iv_run_uuid
                                    iv_query_uuid  = iv_query_uuid
@@ -371,7 +380,6 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
                                    et_axc_query   = lt_axc_query
                                    et_axc_steps   = lt_axc_steps ).
 
-    DATA(ls_recognition_output) = VALUE zbp_r_pru_message=>ts_recognition_output( ).
     assign_runtime_to_messages( EXPORTING io_controller         = io_controller
                                           it_axc_head           = lt_axc_head
                                           it_axc_query          = lt_axc_query
@@ -440,7 +448,8 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
     /ui2/cl_json=>deserialize( EXPORTING json          = ls_input_prompt-string_content
                                          hex_as_base64 = abap_true
                                CHANGING  data          = ls_doc_recognition ).
-
+    " if there is multiple message - we don't know how to map message and specific run
+    " so far only single message may processed correctly
     LOOP AT ls_doc_recognition-message ASSIGNING FIELD-SYMBOL(<ls_message>).
       APPEND INITIAL LINE TO cs_recognition_output-agent_execution_runtime
              ASSIGNING FIELD-SYMBOL(<ls_runtime>).
@@ -475,7 +484,7 @@ CLASS lcl_adf_decision_provider IMPLEMENTATION.
     rv_result_comment = `Document Visual Recognition processing finished`.
   ENDMETHOD.
 
-  METHOD set_http_request_body.
+  METHOD execute_llm.
 *    TRY.
 *        DATA(lo_response) = lo_http_client->execute( i_method = if_web_http_client=>post ).
 *      CATCH cx_web_http_client_error.
@@ -746,10 +755,12 @@ ENDCLASS.
 
 CLASS lcl_adf_create_cmr IMPLEMENTATION.
   METHOD execute_code_int.
-    DATA(lt_creation_content) = deserialize_cmr_creation_input( is_input ).
-
     DATA lt_headers_all TYPE zpru_if_computer_vision=>tt_cmr_header_context.
     DATA lt_items_all   TYPE zpru_if_computer_vision=>tt_cmr_item_context.
+    DATA lt_cmr_header_context TYPE zpru_if_computer_vision=>tt_cmr_header_context.
+    DATA lt_cmr_item_context   TYPE zpru_if_computer_vision=>tt_cmr_item_context.
+
+    DATA(lt_creation_content) = deserialize_cmr_creation_input( is_input ).
 
     LOOP AT lt_creation_content ASSIGNING FIELD-SYMBOL(<ls_cmrcreationcontent>).
       lt_headers_all = CORRESPONDING #( BASE ( lt_headers_all )
@@ -762,14 +773,18 @@ CLASS lcl_adf_create_cmr IMPLEMENTATION.
                              ct_items   = lt_items_all ).
 
     DATA(lt_cmr_create_head) = prepare_header_rap_entities( lt_headers_all ).
-    DATA(lt_cmr_create_item) = prepare_item_rap_entities( lt_items_all ).
+    DATA(lt_cmr_create_item) = prepare_item_rap_entities( it_headers_create = lt_cmr_create_head
+                                                          it_items = lt_items_all ).
 
     IF lt_cmr_create_head IS INITIAL.
       RAISE EXCEPTION NEW zpru_cx_agent_core( ).
     ENDIF.
 
-    DATA lt_cmr_header_context TYPE zpru_if_computer_vision=>tt_cmr_header_context.
-    DATA lt_cmr_item_context   TYPE zpru_if_computer_vision=>tt_cmr_item_context.
+    " release temporarily key before save
+    LOOP AT lt_cmr_create_head ASSIGNING FIELD-SYMBOL(<ls_head_create>)
+                               WHERE cmruuid IS NOT INITIAL.
+      CLEAR <ls_head_create>-cmruuid.
+    ENDLOOP.
 
     persist_cmr_via_rap( EXPORTING it_create_header = lt_cmr_create_head
                                    it_create_item   = lt_cmr_create_item
@@ -819,15 +834,16 @@ CLASS lcl_adf_create_cmr IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD prepare_header_rap_entities.
-    " TODO: variable is assigned but never used (ABAP cleaner)
-    DATA(lv_item_cid) = 1.
+    DATA(lv_header_cid) = 0.
 
     LOOP AT it_headers ASSIGNING FIELD-SYMBOL(<ls_header>).
+
+      lv_header_cid += 1.
       APPEND INITIAL LINE TO rt_create ASSIGNING FIELD-SYMBOL(<ls_entity>).
       <ls_entity> = CORRESPONDING #( <ls_header> MAPPING TO ENTITY CHANGING CONTROL ).
-      <ls_entity>-%cid = '1'.
-      CLEAR: <ls_entity>-cmruuid,
-             <ls_entity>-%control-cmruuid.
+      <ls_entity>-%cid = lv_header_cid.
+
+      <ls_entity>-%control-cmruuid = if_abap_behv=>mk-off.
     ENDLOOP.
   ENDMETHOD.
 
@@ -837,8 +853,14 @@ CLASS lcl_adf_create_cmr IMPLEMENTATION.
     LOOP AT it_items ASSIGNING FIELD-SYMBOL(<ls_item>)
          GROUP BY ( cmruuid = <ls_item>-cmruuid )
          ASSIGNING FIELD-SYMBOL(<group>).
+
+      ASSIGN it_headers_create[ KEY entity COMPONENTS cmruuid = <group>-cmruuid ] TO FIELD-SYMBOL(<ls_header>).
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
+
       APPEND INITIAL LINE TO rt_create ASSIGNING FIELD-SYMBOL(<ls_create_item>).
-      <ls_create_item>-%cid_ref = '1'.
+      <ls_create_item>-%cid_ref = <ls_header>-%cid.
 
       LOOP AT GROUP <group> ASSIGNING FIELD-SYMBOL(<ls_item_member>).
         APPEND INITIAL LINE TO <ls_create_item>-%target ASSIGNING FIELD-SYMBOL(<ls_target>).
@@ -859,9 +881,7 @@ CLASS lcl_adf_create_cmr IMPLEMENTATION.
            CREATE BY \_cmritems
            FROM it_create_item
            MAPPED DATA(ls_mapped)
-           FAILED DATA(ls_failed)
-           " TODO: variable is assigned but never used (ABAP cleaner)
-           REPORTED DATA(ls_reported).
+           FAILED DATA(ls_failed).
 
     IF ls_failed IS NOT INITIAL.
       ev_error_flag = abap_true.
@@ -909,22 +929,21 @@ ENDCLASS.
 
 CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
   METHOD execute_code_int.
+    DATA lt_alert_rap TYPE TABLE FOR CREATE zr_pru_cmr_alert\\zrprucmralert.
+    DATA lv_count     TYPE i.
+    DATA lv_reason TYPE string.
+
     DATA(lt_cmr_item_context) = deserialize_classify_input( is_input ).
 
     IF lt_cmr_item_context IS INITIAL.
-      APPEND INITIAL LINE TO et_key_value_pairs ASSIGNING FIELD-SYMBOL(<ls_kv_empty>).
-      <ls_kv_empty>-name  = zpru_if_computer_vision=>cs_context_field-cmralerts-field_name.
-      <ls_kv_empty>-value = ``.
       RETURN.
     ENDIF.
 
-    DATA lt_alert_rap TYPE TABLE FOR CREATE zr_pru_cmr_alert\\zrprucmralert.
-    DATA lv_count     TYPE i.
-
+    lv_count = 0.
     LOOP AT lt_cmr_item_context ASSIGNING FIELD-SYMBOL(<ls_item>).
       lv_count += 1.
       DATA(lv_is_danger) = abap_false.
-      DATA(lv_reason)    = ``.
+      CLEAR lv_reason.
 
       classify_single_item( EXPORTING is_item      = <ls_item>
                             IMPORTING ev_is_danger = lv_is_danger
@@ -1208,6 +1227,10 @@ CLASS lcl_adf_classify_danger_goods IMPLEMENTATION.
   METHOD persist_alerts_via_rap.
     CLEAR et_alerts.
 
+    IF it_alerts IS INITIAL.
+      RETURN.
+    ENDIF.
+
     MODIFY ENTITIES OF zr_pru_cmr_alert
            ENTITY zrprucmralert
            CREATE FROM it_alerts
@@ -1247,7 +1270,6 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
                                   IMPORTING et_headers = lt_headers
                                             et_items   = lt_items ).
 
-    DATA lt_alerts       TYPE zpru_if_computer_vision=>tt_cmr_alert_context.
     DATA lt_findings_rap TYPE TABLE FOR CREATE zr_pru_cmr_valid\\zrprucmrvalid.
     DATA lt_findings_out TYPE zpru_if_computer_vision=>tt_cmr_finding.
     DATA lt_cmr_status   TYPE zpru_if_computer_vision=>tt_cmr_overall_status.
@@ -1783,7 +1805,6 @@ CLASS lcl_adf_validate_cmr IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD validate_item_dg_fields.
-
     IF is_item-unitednationnumber IS INITIAL.
 
       TRY.
@@ -2014,14 +2035,13 @@ CLASS lcl_adf_create_inb_delivery IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD map_cmr_to_delivery_content.
-
     SELECT MAX( deliveryid ) FROM zprur_inbhdr INTO @DATA(lv_max_deliveryid).
     DATA(lv_next_num) = CONV i( lv_max_deliveryid ).
 
     LOOP AT it_cmr_header ASSIGNING FIELD-SYMBOL(<ls_cmr>).
       APPEND INITIAL LINE TO et_headers_all ASSIGNING FIELD-SYMBOL(<ls_hdr_out>).
 
-      lv_next_num = lv_next_num + 1.
+      lv_next_num += 1.
       <ls_hdr_out>-deliveryid   = lv_next_num.
       <ls_hdr_out>-cmrreference = <ls_cmr>-cmrid.
       <ls_hdr_out>-vendor       = <ls_cmr>-senderinfo.
@@ -2042,7 +2062,6 @@ CLASS lcl_adf_create_inb_delivery IMPLEMENTATION.
         <ls_item_out>-hazardclass  = <ls_cmr_item>-hazardclass.
       ENDLOOP.
     ENDLOOP.
-
   ENDMETHOD.
 
   METHOD prepare_delivery_head_entities.
